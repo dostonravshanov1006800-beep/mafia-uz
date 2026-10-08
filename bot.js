@@ -182,6 +182,179 @@ async function tg(method, params) {
   } catch (e) { throw e; }
 }
 
+
+/* ---------- Тексты профилей (RU/UZ) ---------- */
+const P = {
+  cardTitle:   { ru: "👤 Ваш профиль", uz: "👤 Sizning profilingiz" },
+  lvl:         { ru: "Сныт: {v}", uz: "Sath: {v}" },
+  xpLine:      { ru: "XP: {v}", uz: "XP: {v}" },
+  rating:      { ru: "⭐ Рейтинг: {v}", uz: "⭐ Reyting: {v}" },
+  coins:       { ru: "🪙 Монеты: {v}", uz: "🪙 Tanga: {v}" },
+  gamesLine:   { ru: "🎮 Игры: {g} · ✅ {w} · ❌ {l}", uz: "🎮 Oʻyinlar: {g} · ✅ {w} · ❌ {l}" },
+  streakLine:  { ru: "🔥 Серия побед: {v} (рекорд {r})", uz: "🔥 Gʻalaba seriyasi: {v} (rekord {r})" },
+  achLine:     { ru: "🏅 Достижения: {v}/{t}", uz: "🏅 Yutuqlar: {v}/{t}" },
+  kbBonus:     { ru: "🎁 Бонус", uz: "🎁 Kunlik bonus" },
+  kbTop:       { ru: "🏆 Топ", uz: "🏆 Reyting" },
+  kbLang:      { ru: "🇺🇿 Oʻzbek tiliga", uz: "🇷🇺 На русский" },
+  bonusGot:    { ru: "🎁 Бонус получен: +{v} 🪙!\n🔥 Серия дней: {s}\n\nПриходите завтра!", uz: "🎁 Bonus olindi: +{v} 🪙!\n🔥 Kunlar seriyasi: {s}\n\nErtaga qaytaning!" },
+  bonusOld:    { ru: "⏳ Бонус уже получен. Возвращайтесь завтра!", uz: "⏳ Bugungi bonus olingan. Ertaga qaytaning!" },
+  topTitle:    { ru: "🏆 ТОП-10 по рейтингу", uz: "🏆 Reyting boʻyicha TOP-10" },
+  topEmpty:    { ru: "Хм, рейтинг пока пуст. Сыграйте первыми!", uz: "Reyting hali boʻsh. Birinchi boʻlib oʻynang!" },
+  winYou:      { ru: "🏆 <b>Галаба!</b> +{xp} XP · +{c} 🪙 · рейтинг {r}", uz: "🏆 <b>Gʻalaba!</b> +{xp} XP · +{c} 🪙 · reyting {r}" },
+  loseYou:     { ru: "💀 <b>Поражение.</b> +{xp} XP · +{c} 🪙 · рейтинг {r}", uz: "💀 <b>Magʻlubiyat.</b> +{xp} XP · +{c} 🪙 · reyting {r}" },
+  newAch:      { ru: "🏅 Новое достижение: <b>{v}</b>", uz: "🏅 Yangi yutuq: <b>{v}</b>" },
+  winners:     { ru: "🏆 Победители", uz: "🏆 Gʻoliblar" },
+  meShort:     { ru: "👤 {name} · Сныт {lvl} · ⭐ {rating} · 🪙 {coins}", uz: "👤 {name} · Sath {lvl} · ⭐ {rating} · 🪙 {coins}" },
+};
+function pt(lang, key, vars) {
+  let s = (P[key] && (P[key][lang] || P[key].ru)) || key;
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
+  return s;
+}
+
+/* ---------- Профили, уровни, достижения, топ ---------- */
+const PROFILES = new Map();
+let TOP = [], TOPSHA = null;
+
+const TITLES = [
+  { uz: "Yangi oʻyinchi", ru: "Новичок" },
+  { uz: "Shahar aholisi", ru: "Горожанин" },
+  { uz: "Tajribali aholi", ru: "Опытный горожанин" },
+  { uz: "Detektiv", ru: "Детектив" },
+  { uz: "Mafiya ovchisi", ru: "Охотник на мафию" },
+  { uz: "Shahar afsonasi", ru: "Легенда города" },
+  { uz: "Mafiya Doni", ru: "Крёстный отец" },
+];
+function levelOf(xp) { return Math.floor(Math.sqrt((xp || 0) / 40)) + 1; }
+function titleOf(lvl, lang) {
+  const i = Math.min(TITLES.length - 1, Math.floor((lvl - 1) / 3));
+  return lang === "uz" ? TITLES[i].uz : TITLES[i].ru;
+}
+
+const ACHS = [
+  { k: "first",    cond: p => p.games >= 1,   uz: "Birinchi oʻyin", ru: "Первая игра", e: "🎮" },
+  { k: "firstWin", cond: p => p.wins >= 1,    uz: "Birinchi gʻalaba", ru: "Первая победа", e: "🥇" },
+  { k: "w5",       cond: p => p.wins >= 5,     uz: "5 gʻalaba", ru: "5 побед", e: "🏅" },
+  { k: "w15",      cond: p => p.wins >= 15,    uz: "15 gʻalaba", ru: "15 побед", e: "🏆" },
+  { k: "w30",      cond: p => p.wins >= 30,    uz: "30 gʻalaba", ru: "30 побед", e: "👑" },
+  { k: "g10",      cond: p => p.games >= 10,   uz: "10 oʻyin", ru: "10 игр", e: "🎯" },
+  { k: "g50",      cond: p => p.games >= 50,   uz: "50 oʻyin", ru: "50 игр", e: "⚔️" },
+  { k: "st3",      cond: p => (p.bestStreak || 0) >= 3, uz: "3 ketma-ket gʻalaba", ru: "3 победы подряд", e: "🔥" },
+  { k: "st5",      cond: p => (p.bestStreak || 0) >= 5, uz: "5 ketma-ket gʻalaba!", ru: "5 побед подряд!", e: "⚡" },
+  { k: "don3",     cond: p => (p.roleWins && p.roleWins.don || 0) >= 3, uz: "Don sifatida 3 gʻalaba", ru: "3 победы Доном", e: "🎯" },
+  { k: "doc5",     cond: p => (p.saves || 0) >= 5,  uz: "5 qutqarilgan jon", ru: "5 спасённых жизней", e: "💊" },
+  { k: "sher5",    cond: p => (p.checks || 0) >= 5, uz: "5 aniq tekshiruv", ru: "5 точных проверок", e: "🕵️" },
+];
+function checkAch(p) {
+  const have = p.ach || [];
+  const fresh = [];
+  for (const a of ACHS) {
+    if (!have.includes(a.k) && a.cond(p)) { have.push(a.k); fresh.push(a); }
+  }
+  p.ach = have;
+  return fresh;
+}
+
+function newProfile(uid, name) {
+  return { id: uid, name: name || "", lang: "uz", games: 0, wins: 0, losses: 0, xp: 0,
+    rating: 1000, coins: 0, streak: 0, bestStreak: 0, bonusStreak: 0, lastBonus: "",
+    ach: [], roleWins: {}, saves: 0, checks: 0, __sha: null, created: Date.now() };
+}
+async function getProfile(uid, name) {
+  if (PROFILES.has(uid)) { const c = PROFILES.get(uid); if (name && !c.name) c.name = name; return c; }
+  let p = null;
+  if (!MEMORY_MODE) {
+    try {
+      const cur = await gh(`/repos/${GH_REPO}/contents/profiles/${uid}.json`);
+      if (cur) { p = decState(Buffer.from(cur.content, "base64").toString("utf8")); p.__sha = cur.sha; }
+    } catch (e) {}
+  }
+  if (!p) p = newProfile(uid, name);
+  PROFILES.set(uid, p);
+  return p;
+}
+async function saveProfile(p) {
+  PROFILES.set(p.id, p);
+  if (MEMORY_MODE) return;
+  try {
+    const path = `/repos/${GH_REPO}/contents/profiles/${p.id}.json`;
+    const body = { message: `profile ${p.id}`, content: Buffer.from(encState(p)).toString("base64"), ...(p.__sha ? { sha: p.__sha } : {}) };
+    const r = await gh(path, { method: "PUT", body: JSON.stringify(body) });
+    p.__sha = r.content.sha;
+  } catch (e) { log("saveProfile " + e.message); }
+}
+
+function todayUZ() { return new Date(Date.now() + 5 * 3600e3).toISOString().slice(0, 10); }
+function claimBonus(p) {
+  const today = todayUZ();
+  if (p.lastBonus === today) return { ok: false };
+  const yest = new Date(Date.now() + 5 * 3600e3 - 86400e3).toISOString().slice(0, 10);
+  p.bonusStreak = (p.lastBonus === yest) ? (p.bonusStreak || 0) + 1 : 1;
+  const amount = Math.min(30, 10 + (p.bonusStreak - 1) * 2);
+  p.coins += amount; p.lastBonus = today;
+  return { ok: true, amount };
+}
+
+function cardOf(p, lang) {
+  const lvl = levelOf(p.xp);
+  return [
+    pt(lang, "cardTitle"),
+    "",
+    `🎭 <b>${esc(p.name || "Oʻyinchi")}</b> — ${titleOf(lvl, lang)}`,
+    pt(lang, "lvl", { v: lvl }) + " · " + pt(lang, "xpLine", { v: p.xp || 0 }),
+    pt(lang, "rating", { v: p.rating }),
+    pt(lang, "coins", { v: p.coins }),
+    pt(lang, "gamesLine", { g: p.games, w: p.wins, l: p.losses }),
+    pt(lang, "streakLine", { v: p.streak || 0, r: p.bestStreak || 0 }),
+    pt(lang, "achLine", { v: (p.ach || []).length, t: ACHS.length }),
+  ].join("\n");
+}
+function pmKb(lang) {
+  return { inline_keyboard: [
+    [{ text: pt(lang, "kbBonus"), callback_data: "B:bonus" }, { text: pt(lang, "kbTop"), callback_data: "B:top" }],
+    [{ text: pt(lang, "kbLang"), callback_data: "B:lang" }],
+  ] };
+}
+function topText(lang) {
+  if (!TOP.length) return pt(lang, "topEmpty");
+  const lines = TOP.slice(0, 10).map((e, i) =>
+    `${["🥇", "🥈", "🥉"][i] || (i + 1) + "."} ${esc(e.name)} — ⭐${e.rating} · ${lang === "uz" ? "Sath" : "Сныт"} ${e.level}${e.wins ? ` · ✅${e.wins}` : ""}`);
+  return pt(lang, "topTitle") + "\n\n" + lines.join("\n");
+}
+async function updateTop(players) {
+  const byId = new Map(TOP.map(e => [e.id, e]));
+  for (const p of players) {
+    const prof = PROFILES.get(p.id);
+    if (prof) byId.set(p.id, { id: p.id, name: prof.name || p.name, rating: prof.rating, wins: prof.wins, level: levelOf(prof.xp) });
+  }
+  const sorted = [...byId.values()].sort((a, b) => b.rating - a.rating).slice(0, 100);
+  TOP.length = 0; TOP.push(...sorted); // мутация, чтобы ссылка жила
+  if (MEMORY_MODE) return;
+  try {
+    const body = { message: "top update", content: Buffer.from(encState(TOP)).toString("base64"), ...(TOPSHA ? { sha: TOPSHA } : {}) };
+    const r = await gh(`/repos/${GH_REPO}/contents/top.json`, { method: "PUT", body: JSON.stringify(body) });
+    TOPSHA = r.content.sha;
+  } catch (e) { log("saveTop " + e.message); }
+}
+async function loadTop() {
+  if (MEMORY_MODE) return;
+  try {
+    const cur = await gh(`/repos/${GH_REPO}/contents/top.json`);
+    if (cur) { TOPSHA = cur.sha; const arr = decState(Buffer.from(cur.content, "base64").toString("utf8")); TOP.length = 0; TOP.push(...arr); }
+  } catch (e) {}
+}
+async function sendPmCard(uid, from, cmd) {
+  const p = await getProfile(uid, from.first_name || from.username || "");
+  if (cmd && cmd.startsWith("/bonus")) {
+    const b = claimBonus(p); await saveProfile(p);
+    return void (await tg("sendMessage", { chat_id: uid, text: b.ok ? pt(p.lang, "bonusGot", { v: b.amount, s: p.bonusStreak }) : pt(p.lang, "bonusOld"), parse_mode: "HTML", reply_markup: pmKb(p.lang) }).catch(() => {}));
+  }
+  if (cmd && cmd.startsWith("/top")) {
+    return void (await tg("sendMessage", { chat_id: uid, text: topText(p.lang), parse_mode: "HTML", reply_markup: pmKb(p.lang) }).catch(() => {}));
+  }
+  await tg("sendMessage", { chat_id: uid, text: cardOf(p, p.lang) + "\n\n👉 " + t({ lang: p.lang }, "helpGroup"), parse_mode: "HTML", reply_markup: pmKb(p.lang) }).catch(() => {});
+}
+
 /* ---------- Игровая логика ---------- */
 function numPlayers(g) { return g.players.length; }
 function alive(g) { return g.players.filter(p => p.alive); }
@@ -366,10 +539,16 @@ async function resolveNight(g) {
   const victim = a.mafia ? byNum(g, a.mafia) : null;
   const heals = Object.values(a.doctors || {}).filter(v => v !== null && v !== undefined);
   const saved = victim && heals.includes(a.mafia);
+  if (victim && saved) {
+    for (const [uid, tn] of Object.entries(a.doctors || {})) {
+      if (tn === a.mafia) { const dp = g.players.find(x => x.id === +uid); if (dp) dp.saves = (dp.saves || 0) + 1; }
+    }
+  }
   for (const [uid, tnum] of Object.entries(a.sheriffs || {})) {
     if (tnum === null || tnum === undefined) continue;
     const target = byNum(g, tnum);
     const isMaf = target && ["don", "mafia"].includes(target.role);
+    if (isMaf) { const sp = g.players.find(x => x.id === +uid); if (sp) sp.checks = (sp.checks || 0) + 1; }
     await tg("sendMessage", {
       chat_id: +uid,
       text: `<b>${pName(target)}</b> → ${isMaf ? t(g, "sheriffMafia") : t(g, "sheriffCiv")}`,
@@ -442,8 +621,39 @@ function checkWin(g) {
 
 async function endGame(g, winner, prefix = "") {
   g.phase = "ended";
+  const isMafiaWin = winner === "mafia";
+  const winners = g.players.filter(p => isMafiaWin ? ["don", "mafia"].includes(p.role) : !["don", "mafia"].includes(p.role));
+  // --- профильные награды ---
+  for (const p of g.players) {
+    try {
+      const prof = await getProfile(p.id, p.name);
+      prof.name = p.name || prof.name;
+      prof.lang = g.lang;
+      prof.games++;
+      const won = winners.some(w => w.id === p.id);
+      if (won) { prof.wins++; prof.streak++; prof.bestStreak = Math.max(prof.bestStreak || 0, prof.streak); }
+      else { prof.losses++; prof.streak = 0; }
+      const oldRating = prof.rating;
+      prof.xp += won ? 35 : 12;
+      prof.coins += won ? 20 : 5;
+      prof.rating = Math.max(100, prof.rating + (won ? 25 + Math.min(10, (prof.streak || 0) * 2) : -15));
+      prof.roleWins = prof.roleWins || {};
+      if (won) prof.roleWins[p.role] = (prof.roleWins[p.role] || 0) + 1;
+      if (p.role === "doctor") prof.saves = (prof.saves || 0) + (p.saves || 0);
+      if (p.role === "sheriff") prof.checks = (prof.checks || 0) + (p.checks || 0);
+      const fresh = checkAch(prof);
+      await saveProfile(prof);
+      const dr = prof.rating - oldRating;
+      let pm = pt(g.lang, won ? "winYou" : "loseYou", { xp: won ? 35 : 12, c: won ? 20 : 5, r: (dr >= 0 ? "+" : "") + dr + " → " + prof.rating });
+      pm += "\n" + cardOf(prof, g.lang);
+      for (const a of fresh) pm += "\n\n" + pt(g.lang, "newAch", { v: a.e + " " + (g.lang === "uz" ? a.uz : a.ru) });
+      await tg("sendMessage", { chat_id: p.id, text: pm, parse_mode: "HTML" }).catch(() => {});
+    } catch (e) { log("reward " + e.message); }
+  }
+  try { await updateTop(g.players); } catch (e) {}
   const roles = g.players.map(p => `${p.num}. ${pName(p)} — ${roleName(p.role, g.lang)}${p.alive ? " ✅" : " ☠️"}`).join("\n");
-  const text = prefix + `<b>${winner === "mafia" ? t(g, "winMafia") : t(g, "winCiv")}</b>\n\n<b>${t(g, "rolesWere")}</b>\n${roles}`;
+  const winnersLine = winners.map(p => pName(p)).join(", ");
+  const text = prefix + `<b>${winner === "mafia" ? t(g, "winMafia") : t(g, "winCiv")}</b>\n\n${pt(g.lang, "winners")}: ${winnersLine}\n\n<b>${t(g, "rolesWere")}</b>\n${roles}`;
   try {
     await tg("editMessageText", { chat_id: g.chatId, message_id: g.statusMsgId, text, parse_mode: "HTML" });
   } catch (e) {
@@ -466,10 +676,8 @@ async function onMessage(msg) {
   if (!from || from.is_bot) return;
 
   if (msg.chat.type === "private") {
-    if (text.startsWith("/start") || text.startsWith("/help")) {
-      const kb = { inline_keyboard: [[{ text: t(null, "newGame"), url: `https://t.me/mafiauzs_bot?startgroup=mafia` }]] };
-      await tg("sendMessage", { chat_id: chatId, text: t({ lang: "ru" }, "helpPM"), parse_mode: "HTML", reply_markup: kb });
-      // UZ версия вторым сообщением для UZ-аудитории? Нет: /start на RU, язык переключается в лобби.
+    if (/^\/(start|help|me|profile|bonus|top)/.test(text)) {
+      await sendPmCard(chatId, from, text);
     }
     return;
   }
@@ -483,6 +691,13 @@ async function onMessage(msg) {
     }
     if (g && g.phase === "ended") { MEM.delete(chatId); }
     await createLobby(chatId, from);
+  } else if (text.startsWith("/top")) {
+    const gl = (gameOf(chatId) || {}).lang || "uz";
+    await tg("sendMessage", { chat_id: chatId, text: topText(gl), parse_mode: "HTML" }).catch(() => {});
+  } else if (text.startsWith("/me") || text.startsWith("/profile")) {
+    const gl = (gameOf(chatId) || {}).lang || "uz";
+    const p = await getProfile(from.id, from.first_name || from.username || "");
+    await tg("sendMessage", { chat_id: chatId, text: cardOf(p, gl), parse_mode: "HTML" }).catch(() => {});
   } else if (text.startsWith("/end") || text.startsWith("/stop")) {
     const g = gameOf(chatId);
     if (g && g.creator === from.id) {
@@ -500,6 +715,20 @@ async function onCallback(q) {
   const isGroup = q.message.chat.type !== "private";
 
   try {
+    // ---- кнопки профиля в личке: B:<cmd>
+    if (data.startsWith("B:")) {
+      const cmd = data.slice(2);
+      if (cmd === "lang") {
+        const p = await getProfile(from.id, from.first_name || "");
+        p.lang = p.lang === "uz" ? "ru" : "uz";
+        await saveProfile(p);
+        await sendPmCard(from.id, from, "");
+        return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
+      }
+      await sendPmCard(from.id, from, cmd === "bonus" ? "/bonus" : "/top");
+      return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
+    }
+
     // ---- личные игровые действия: A:<gameChatId>:<action>
     if (data.startsWith("A:")) {
       const parts = data.split(":");
@@ -646,4 +875,4 @@ async function main() {
 }
 
 if (IS_MAIN) main();
-module.exports = { handleUpdate, tick, MEM, putGame, gameOf, createLobby, startGame, beginNight, beginVote, resolveNight, resolveVote, checkWin, t, tg, MEMORY_MODE, loadAll, distributeRoles };
+module.exports = { handleUpdate, tick, MEM, putGame, gameOf, createLobby, startGame, beginNight, beginVote, resolveNight, resolveVote, checkWin, t, tg, MEMORY_MODE, loadAll, distributeRoles, getProfile, claimBonus, PROFILES, TOP, checkAch, cardOf, levelOf, sendPmCard, topText };
