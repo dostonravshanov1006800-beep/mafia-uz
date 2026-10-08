@@ -131,11 +131,10 @@ const T = {
   rolesWere:    { ru: "🎭 Роли:", uz: "🎭 Rollar:" },
   gameCancelled: { ru: "❌ Игра отменена.", uz: "❌ Oʻyin bekor qilindi." },
   helpGroup:    { ru: "👉 Добавьте меня в группу и нажмите «Новая игра».", uz: "👉 Meni guruhga qoʻshing va «Yangi oʻyin»ni bosing." },
-  helpPM:       { ru: "👋 Я — <b>Mafia UZ</b>, игровая Мафия в Telegram.\n\nСоберите 4–10 друзей в группе — и я стану ведущим: раздам роли, буду вести ночи и дни, голосование и таймеры.\n\n👉 Добавьте меня в группу и напишите /start (или нажмите кнопку ниже).\n\nЯ говорю на 🇷🇺 и 🇺🇿.", uz: "👋 Men — <b>Mafia UZ</b>, Telegramdagi Mafiya oʻyini.\n\nGuruhda 4–10 doʻstni yigʻing — men boshqaruvchi boʻlaman: rollar tarqataman, tun va kunlarni, ovoz berish va taymerlarni olib boraman.\n\n👉 Meni guruhga qoʻshing va /start yozing (yoki pastdagi tugmani bosing).\n\nMen 🇷🇺 va 🇺🇿 tillarida gaplashaman." },
+  helpPM:       { ru: "👋 Я — <b>Mafia UZ</b>, игровая Мафия в Telegram.\n\nСоберите друзей в группе (от 4 игроков, без лимита) — и я стану ведущим: раздам роли, буду вести ночи и дни, голосование и таймеры.\n\n👉 Добавьте меня в группу и напишите /start (или нажмите кнопку ниже).\n\nЯ говорю на 🇷🇺 и 🇺🇿.", uz: "👋 Men — <b>Mafia UZ</b>, Telegramdagi Mafiya oʻyini.\n\nGuruhda 4 tadan doʻstni yigʻing (chegara yoʻq) — men boshqaruvchi boʻlaman: rollar tarqataman, tun va kunlarni, ovoz berish va taymerlarni olib boraman.\n\n👉 Meni guruhga qoʻshing va /start yozing (yoki pastdagi tugmani bosing).\n\nMen 🇷🇺 va 🇺🇿 tillarida gaplashaman." },
   newGame:      { ru: "🎲 Новая игра", uz: "🎲 Yangi oʻyin" },
   pmBlocked:    { ru: "⚠️ {name}, откройте личку с ботом (напишите мне /start), иначе не сможете играть.", uz: "⚠️ {name}, botga shaxsiy chatni oching (menga /start yozing), aks holda oʻyinlay olmaysiz." },
   tooFew:       { ru: "❌ Нужно минимум 4 игрока.", uz: "❌ Kamida 4 oʻyinchi kerak." },
-  tooMany:      { ru: "❌ Максимум 10 игроков.", uz: "❌ Maksimum 10 oʻyinchi." },
   notInGame:    { ru: "Вы не в игре.", uz: "Siz oʻyinda emassiz." },
   deadNoAct:    { ru: "💀 Мёртвые молчат 😏", uz: "💀 Oʻliklar jim turadi 😏" },
   alreadyVoted: { ru: "Голос уже учтён.", uz: "Ovoz allaqachon qabul qilindi." },
@@ -191,27 +190,31 @@ function aliveMafia(g) { return g.players.filter(p => p.alive && ["don", "mafia"
 function byNum(g, n) { return g.players.find(p => p.num === n); }
 function pName(p) { return esc(p.name || p.username || ("#" + p.num)); }
 
-function mafiaCount(n) { return n <= 5 ? 1 : n <= 9 ? 2 : 3; }
-
 function distributeRoles(g) {
+  // адаптивно под любое число игроков, БЕЗ лимита:
+  // мафия ~1/3 (мин. 1, один из них — Дон), 1 доктор на 7, 1 комиссар на 8
+  const n = g.players.length;
+  const m = Math.max(1, Math.floor(n / 3));
+  const dCount = Math.max(1, Math.floor((n - 1) / 7) + 1);
+  const sCount = Math.max(1, Math.floor((n - 1) / 8) + 1);
   const ps = [...g.players];
   for (let i = ps.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ps[i], ps[j]] = [ps[j], ps[i]]; }
-  const m = mafiaCount(ps.length);
   ps.forEach((p, i) => {
     if (i === 0) p.role = "don";
     else if (i < m) p.role = "mafia";
-    else if (i === m) p.role = "sheriff";
-    else if (i === m + 1) p.role = "doctor";
+    else if (i < m + dCount) p.role = "doctor";
+    else if (i < m + dCount + sCount) p.role = "sheriff";
     else p.role = "civ";
     p.alive = true;
   });
+  return { mafia: m, doctors: dCount, sheriffs: sCount };
 }
 
 function lobbyText(g) {
   const L = g.lang;
   const lines = g.players.map(p => `${p.num}. ${pName(p)}${p.id === g.creator ? " 👑" : ""}`).join("\n");
   const need = numPlayers(g) < 4 ? "\n\n" + t(g, "lobbyMin") : "";
-  return `${t(g, "lobbyTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}/10):</b>\n${lines || "—"}${need}`;
+  return `${t(g, "lobbyTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}):</b>\n${lines || "—"}${need}`;
 }
 function lobbyKb(g) {
   const inGame = g.players.length > 0;
@@ -238,7 +241,6 @@ async function createLobby(chatId, from) {
 
 async function tryJoin(g, from) {
   if (g.players.find(p => p.id === from.id)) return false;
-  if (g.players.length >= 10) return false;
   g.players.push({ id: from.id, num: g.players.length + 1, name: from.first_name || from.username || "Player", username: from.username || "", role: null, alive: true });
   await refreshLobby(g);
   return true;
@@ -314,9 +316,12 @@ async function pmTargetChoice(g, p, introKey, prefix, targets) {
   });
 }
 
-function nightDone(g) {
-  const a = g.phaseData.actions;
-  return !!(a.mafia || a.mafiaPass);
+function nightComplete(g) {
+  const a = g.phaseData.actions || {};
+  const mOK = a.mafia !== undefined || a.mafiaPass || !alive(g).some(x => ["don", "mafia"].includes(x.role));
+  const dOK = alive(g).filter(x => x.role === "doctor").every(x => (a.doctors || {})[x.id] !== undefined);
+  const sOK = alive(g).filter(x => x.role === "sheriff").every(x => (a.sheriffs || {})[x.id] !== undefined);
+  return mOK && dOK && sOK;
 }
 function allVoted(g) {
   return alive(g).every(p => g.phaseData.votes[p.id] !== undefined);
@@ -359,21 +364,20 @@ async function updateStatus(g, leftSec) {
 async function resolveNight(g) {
   const a = g.phaseData.actions || {};
   const victim = a.mafia ? byNum(g, a.mafia) : null;
-  const healed = a.doctor ? byNum(g, a.doctor) : null;
-  if (a.sheriff) {
-    const target = byNum(g, a.sheriff);
-    const p = g.players.find(x => ["don", "mafia"].includes(x.role) && x.num === target?.num);
-    const who = g.players.find(x => x.role === "sheriff");
-    if (who && target) {
-      await tg("sendMessage", {
-        chat_id: who.id,
-        text: `<b>${pName(target)}</b> → ${p ? t(g, "sheriffMafia") : t(g, "sheriffCiv")}`,
-        parse_mode: "HTML",
-      }).catch(() => {});
-    }
+  const heals = Object.values(a.doctors || {}).filter(v => v !== null && v !== undefined);
+  const saved = victim && heals.includes(a.mafia);
+  for (const [uid, tnum] of Object.entries(a.sheriffs || {})) {
+    if (tnum === null || tnum === undefined) continue;
+    const target = byNum(g, tnum);
+    const isMaf = target && ["don", "mafia"].includes(target.role);
+    await tg("sendMessage", {
+      chat_id: +uid,
+      text: `<b>${pName(target)}</b> → ${isMaf ? t(g, "sheriffMafia") : t(g, "sheriffCiv")}`,
+      parse_mode: "HTML",
+    }).catch(() => {});
   }
   let dayText = `${t(g, "dayTitle", { n: g.dayNo })}\n\n`;
-  if (victim && healed && victim.id === healed.id) {
+  if (victim && saved) {
     dayText += t(g, "savedNight");
   } else if (victim) {
     victim.alive = false;
@@ -512,24 +516,13 @@ async function onCallback(q) {
         const role = p.role;
         if (!["don", "mafia", "doctor", "sheriff"].includes(role)) return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
         const a = g.phaseData.actions;
-        if (role === "don") a.mafia = targetNum;
-        if (role === "mafia") { if (!a.mafia) a.mafia = targetNum; else return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "alreadyVoted") })); }
-        if (role === "doctor") a.doctor = targetNum;
-        if (role === "sheriff") a.sheriff = targetNum;
+        if (role === "don") { if (a.mafia === undefined) a.mafia = targetNum; else return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "alreadyVoted") })); }
+        if (role === "mafia") { if (a.mafia === undefined) a.mafia = targetNum; else return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "alreadyVoted") })); }
+        if (role === "doctor") { (a.doctors = a.doctors || {})[from.id] = targetNum; }
+        if (role === "sheriff") { (a.sheriffs = a.sheriffs || {})[from.id] = targetNum; }
         await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "actDone") });
         await putGame(g);
-        if (nightDone(g) && a.doctor !== undefined && a.sheriff !== undefined && a.mafia !== undefined) { /* ждём всех или таймер */ }
-        // ночь завершается по таймеру либо когда все активные роли отметились
-        const need = [];
-        for (const x of alive(g)) {
-          if (x.role === "don" || (x.role === "mafia" && !a.mafia)) need.push("m");
-          if (x.role === "doctor") need.push("d");
-          if (x.role === "sheriff") need.push("s");
-        }
-        const mafiaSet = a.mafia !== undefined;
-        const doctorSet = a.doctor !== undefined || !alive(g).some(x => x.role === "doctor");
-        const sheriffSet = a.sheriff !== undefined || !alive(g).some(x => x.role === "sheriff");
-        if (mafiaSet && doctorSet && sheriffSet) await resolveNight(g);
+        if (nightComplete(g)) await resolveNight(g);
       } else if (act.startsWith("v")) { // голосование днём
         if (g.phase !== "vote") return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
         const targetNum = +act.slice(1);
@@ -541,15 +534,12 @@ async function onCallback(q) {
       } else if (act === "p") { // пропустить/воздержаться
         if (g.phase === "night") {
           const a = g.phaseData.actions;
-          if (["don", "mafia"].includes(p.role) && a.mafia === undefined) a.mafiaPass = true, a.mafia = undefined;
-          if (p.role === "doctor") a.doctor = null;
-          if (p.role === "sheriff") a.sheriff = null;
+          if (["don", "mafia"].includes(p.role) && a.mafia === undefined) a.mafiaPass = true;
+          if (p.role === "doctor") (a.doctors = a.doctors || {})[from.id] = null;
+          if (p.role === "sheriff") (a.sheriffs = a.sheriffs || {})[from.id] = null;
           await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "actDone") });
           await putGame(g);
-          const doctorSet = a.doctor !== undefined || !alive(g).some(x => x.role === "doctor");
-          const sheriffSet = a.sheriff !== undefined || !alive(g).some(x => x.role === "sheriff");
-          const mafiaSet = a.mafia !== undefined || a.mafiaPass || !alive(g).some(x => ["don","mafia"].includes(x.role));
-          if (mafiaSet && doctorSet && sheriffSet) await resolveNight(g);
+          if (nightComplete(g)) await resolveNight(g);
         } else if (g.phase === "vote") {
           g.phaseData.votes[from.id] = "pass";
           await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "actDone") });
@@ -565,7 +555,6 @@ async function onCallback(q) {
     if (data === "j") {
       if (!g) return;
       if (g.phase !== "lobby") return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
-      if (g.players.length >= 10) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "tooMany") }));
       await tryJoin(g, from);
       await putGame(g);
       await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "lobbyJoined") });
