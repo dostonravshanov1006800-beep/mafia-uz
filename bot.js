@@ -12,6 +12,7 @@ const IS_MAIN = typeof require !== "undefined" && require.main === module;
 
 /* ---------- GitHub как хранилище (шифрованное) ---------- */
 const GH_REPO = process.env.GH_REPO || "dostonravshanov1006800-beep/mafia-uz";
+const BANNER = "https://raw.githubusercontent.com/" + GH_REPO + "/main/assets/banner.jpg";
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_ACCESS_TOKEN || "";
 const GH_API = "https://api.github.com";
 const MEMORY_MODE = process.env.MAFIA_MEMORY === "1"; // для тестов
@@ -98,10 +99,10 @@ const T = {
   lobbyMin:     { ru: "Минимум 4 игрока. Жмите «➕ Вступить»!", uz: "Kamida 4 oʻyinchi kerak. «➕ Qoʻshilish»ni bosing!" },
   lobbyCreator: { ru: "Создатель игры", uz: "Oʻyin yaratuvchisi" },
   lobbyJoined:  { ru: "✅ Вы в игре!", uz: "✅ Siz oʻyindasiz!" },
-  btnJoin:      { ru: "➕ Вступить", uz: "➕ Qoʻshilish" },
-  btnLeave:     { ru: "➖ Выйти", uz: "➖ Chiqish" },
-  btnStart:     { ru: "▶️ Начать игру", uz: "▶️ Oʻyinni boshlash" },
-  btnCancel:    { ru: "❌ Отменить", uz: "❌ Bekor qilish" },
+  btnJoin:      { ru: "🎭 Вступить в семью", uz: "🎭 Qoʻshilish" },
+  btnLeave:     { ru: "🚪 Покинуть", uz: "🚪 Chiqib ketish" },
+  btnStart:     { ru: "🎩 Начать игру", uz: "🎩 Oʻyinni boshlash" },
+  btnCancel:    { ru: "🚫 Отменить", uz: "🚫 Bekor qilish" },
   btnAgain:     { ru: "🎲 Играть снова", uz: "🎲 Yana oʻynash" },
   noCreator:    { ru: "Это может только создатель игры.", uz: "Buni faqat oʻyin yaratuvchisi qilishi mumkin." },
   started:      { ru: "🎭 Игра началась! Роли отправлены в личные сообщения. Проверьте личку — если её нет, нажмите /start у бота.", uz: "🎭 Oʻyin boshlandi! Rollar shaxsiy chatga yuborildi. Chatni tekshiring — xabar kelmasa botga /start yozing." },
@@ -113,7 +114,7 @@ const T = {
   nightDoctor:  { ru: "💊 Вы — доктор. Кого лечить этой ночью?", uz: "💊 Siz — doktor. Bu tunda kimga yordam berasiz?" },
   nightSheriff: { ru: "🕵️ Вы — комиссар. Кого проверить?", uz: "🕵️ Siz — komissar. Kimni tekshirish?" },
   chooseTarget:  { ru: "Выберите игрока:", uz: "Oʻyinchini tanlang:" },
-  passNight:    { ru: "😴 Пропустить", uz: "😴 Oʻtkazib yuborish" },
+  passNight:    { ru: "😴 Тихая ночь", uz: "😴 Tun tinch oʻtsin" },
   actDone:      { ru: "✅ Принято.", uz: "✅ Qabul qilindi." },
   dayTitle:     { ru: "☀️ ДЕНЬ {n}. Город просыпается!", uz: "☀️ KUN {n}. Shahar uygʻonadi!" },
   diedNight:    { ru: "☠️ Убит этой ночью: <b>{name}</b> — был(а) {role}.", uz: "☠️ Bu tun qurboni: <b>{name}</b> — {role} edi." },
@@ -357,6 +358,7 @@ async function sendPmCard(uid, from, cmd) {
   if (cmd && cmd.startsWith("/top")) {
     return void (await tg("sendMessage", { chat_id: uid, text: topText(p.lang), parse_mode: "HTML", reply_markup: pmKb(p.lang) }).catch(() => {}));
   }
+  await tg("sendPhoto", { chat_id: uid, photo: BANNER, caption: "🎩 MAFIA UZ" }).catch(() => {});
   await tg("sendMessage", { chat_id: uid, text: cardOf(p, p.lang) + "\n\n👉 " + t({ lang: p.lang }, "helpGroup"), parse_mode: "HTML", reply_markup: pmKb(p.lang) }).catch(() => {});
 }
 
@@ -492,18 +494,18 @@ async function beginNight(g) {
   g.statusMsgId = m.message_id;
   // личные действия
   for (const p of alive(g)) {
-    if (["don", "mafia"].includes(p.role)) await pmTargetChoice(g, p, "nightMafia", "n", alive(g).filter(x => !["don","mafia"].includes(x.role)));
-    else if (p.role === "doctor") await pmTargetChoice(g, p, "nightDoctor", "n", alive(g));
-    else if (p.role === "sheriff") await pmTargetChoice(g, p, "nightSheriff", "n", alive(g).filter(x => x.id !== p.id));
+    if (["don", "mafia"].includes(p.role)) await pmTargetChoice(g, p, "nightMafia", "n", alive(g).filter(x => !["don","mafia"].includes(x.role)), "🔪");
+    else if (p.role === "doctor") await pmTargetChoice(g, p, "nightDoctor", "n", alive(g), "💊");
+    else if (p.role === "sheriff") await pmTargetChoice(g, p, "nightSheriff", "n", alive(g).filter(x => x.id !== p.id), "🕵️");
   }
   await putGame(g);
 }
 
-async function pmTargetChoice(g, p, introKey, prefix, targets) {
+async function pmTargetChoice(g, p, introKey, prefix, targets, emo = "⚖️") {
   const kb = { inline_keyboard: [] };
   targets.forEach(x => {
     const last = kb.inline_keyboard[kb.inline_keyboard.length - 1];
-    const btn = { text: `${x.num} ${x.name.slice(0, 14)}`, callback_data: `A:${g.chatId}:${prefix}${x.num}` };
+    const btn = { text: `${emo} ${x.num} · ${x.name.slice(0, 14)}`, callback_data: `A:${g.chatId}:${prefix}${x.num}` };
     if (!last || last.length >= 3) kb.inline_keyboard.push([btn]); else last.push(btn);
   });
   kb.inline_keyboard.push([{ text: t(g, prefix === "v" ? "passVote" : "passNight"), callback_data: `A:${g.chatId}:p` }]);
@@ -605,7 +607,7 @@ async function beginVote(g) {
   const m = await tg("sendMessage", { chat_id: g.chatId, text: t(g, "voteAsk"), parse_mode: "HTML" });
   g.statusMsgId = m.message_id;
   for (const p of alive(g)) {
-    await pmTargetChoice(g, p, "votePM", "v", alive(g).filter(x => x.id !== p.id));
+    await pmTargetChoice(g, p, "votePM", "v", alive(g).filter(x => x.id !== p.id), "⚖️");
   }
 }
 
@@ -713,6 +715,7 @@ async function onMessage(msg) {
       return;
     }
     if (g && g.phase === "ended") { MEM.delete(chatId); }
+    await tg("sendPhoto", { chat_id: chatId, photo: BANNER, caption: "🎩 MAFIA UZ — " + t({ lang: "uz" }, "lobbyTitle").replace("🎭 ", "") }).catch(() => {});
     await createLobby(chatId, from);
   } else if (text.startsWith("/top")) {
     const gl = (gameOf(chatId) || {}).lang || "uz";
