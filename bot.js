@@ -13,7 +13,7 @@ const IS_MAIN = typeof require !== "undefined" && require.main === module;
 /* ---------- GitHub как хранилище (шифрованное) ---------- */
 const GH_REPO = process.env.GH_REPO || "dostonravshanov1006800-beep/mafia-uz";
 const BANNER = "https://raw.githubusercontent.com/" + GH_REPO + "/main/assets/banner.jpg";
-const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_ACCESS_TOKEN || "";
+const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || process.env.GITHUB_ACCESS_TOKEN || "";
 const GH_API = "https://api.github.com";
 const MEMORY_MODE = process.env.MAFIA_MEMORY === "1"; // для тестов
 const STATE_DIR = "games";
@@ -61,12 +61,14 @@ async function loadAll() {
   try {
     const ls = await gh(`/repos/${GH_REPO}/contents/${STATE_DIR}`);
     if (!Array.isArray(ls)) return;
-    for (const f of ls) {
+    await Promise.all(ls.map(async (f0) => {
       try {
+        const f = f0.content ? f0 : await gh(`/repos/${GH_REPO}/contents/${STATE_DIR}/${f0.name}`);
+        if (!f) return;
         const g = decState(Buffer.from(f.content, "base64").toString("utf8"));
         if (g && g.phase !== "ended") { MEM.set(g.chatId, g); SHA.set(g.chatId, f.sha); }
       } catch (e) { /* битый файл — пропускаем */ }
-    }
+    }));
     log(`загружено игр: ${MEM.size}`);
   } catch (e) { log("loadAll: " + e.message); }
 }
@@ -84,7 +86,7 @@ async function persist(game) {
     const body = { message: `state ${game.chatId}`, content: Buffer.from(encState(game)).toString("base64"), ...(sha ? { sha } : {}) };
     const r = await gh(path, { method: "PUT", body: JSON.stringify(body) });
     SHA.set(game.chatId, r.content.sha);
-  }).catch(e => log("persist " + e.message));
+  }).catch(e => log("persist ОШИБКА " + game.chatId + ": " + e.message));
   SAVEQ.set(game.chatId, p);
   return p;
 }
@@ -469,7 +471,7 @@ async function refreshAdminPanels(g) {
   try {
     const ids = await groupAdmins(g);
     g.panelMsgs = g.panelMsgs || {};
-    for (const uid of ids) {
+    await Promise.all(ids.map(async (uid) => {
       const text = panelText(g), kb = panelKb(g);
       let done = false;
       if (g.panelMsgs[uid]) {
@@ -478,7 +480,7 @@ async function refreshAdminPanels(g) {
       if (!done) {
         try { const m = await tg("sendMessage", { chat_id: uid, text, parse_mode: "HTML", reply_markup: kb }); g.panelMsgs[uid] = m.message_id; } catch (e) { delete g.panelMsgs[uid]; }
       }
-    }
+    }));
   } catch (e) { log("panel " + e.message); }
 }
 async function closeAdminPanels(g, key) {
@@ -493,7 +495,7 @@ async function closeAdminPanels(g, key) {
 async function refreshLobby(g) {
   try { await tg("editMessageText", { chat_id: g.chatId, message_id: g.msgId, text: lobbyText(g), parse_mode: "HTML", reply_markup: lobbyKb(g) }); }
   catch (e) { const m = await tg("sendMessage", { chat_id: g.chatId, text: lobbyText(g), parse_mode: "HTML", reply_markup: lobbyKb(g) }); g.msgId = m.message_id; }
-  await refreshAdminPanels(g);
+  refreshAdminPanels(g).catch(() => {}); // панели админам — параллельно, не задерживают лобби
 }
 
 async function startGame(g) {
@@ -799,6 +801,11 @@ async function onCallback(q) {
   const data = q.data || "";
   const chatId = q.message.chat.id;
   const isGroup = q.message.chat.type !== "private";
+  // мгновенный ответ на нажатие (снимает «часики» сразу); текстовые попапы ниже шлются отдельно только там, где нужны
+  q._acked = false;
+  const _origAck = tg;
+  const quickAck = () => { if (!q._acked) { q._acked = true; return tg("answerCallbackQuery", { callback_query_id: q.id }).catch(() => {}); } };
+  if (/^(j|l|lang)$/.test(data) || /^B:/.test(data)) { /* ответим с текстом ниже, но не ждём GitHub */ }
 
   try {
     // ---- кнопки профиля в личке: B:<cmd>
@@ -901,16 +908,17 @@ async function onCallback(q) {
     if (data === "j") {
       if (!g) return;
       if (g.phase !== "lobby") return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
-      await tryJoin(g, from);
-      await putGame(g);
+      const joined = !g.players.find(p => p.id === from.id);
+      if (joined) g.players.push({ id: from.id, num: g.players.length + 1, name: from.first_name || from.username || "Player", username: from.username || "", role: null, alive: true });
+      // сначала мгновенный ответ игроку, потом тяжёлое обновление в фоне
       await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "lobbyJoined") });
+      if (joined) bg(async () => { await refreshLobby(g); await putGame(g); });
     } else if (data === "l") {
       if (!g || g.phase !== "lobby") return;
       g.players = g.players.filter(p => p.id !== from.id);
       g.players.forEach((p, i) => p.num = i + 1);
-      await refreshLobby(g);
-      await putGame(g);
       await tg("answerCallbackQuery", { callback_query_id: q.id });
+      bg(async () => { await refreshLobby(g); await putGame(g); });
     } else if (data === "s") {
       if (!g) return;
       if (!(await isAdminUser(g, from.id))) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "noAdmin") }));
@@ -960,6 +968,8 @@ async function onCallback(q) {
   }
 }
 
+function bg(fn) { Promise.resolve().then(fn).catch(e => log("bg " + e.message)); }
+
 async function handleUpdate(u) {
   try {
     if (u.message) await onMessage(u.message);
@@ -989,7 +999,7 @@ async function main() {
   let offset = 0;
   const t0 = Date.now();
   const tickTimer = setInterval(() => tick().catch(e => log("tick " + e.message)), 5000);
-  setTimeout(() => dispatchReplacement(), RUN_MS - 35_000);
+  setTimeout(() => dispatchReplacement(), RUN_MS - 80_000);
 
   while (Date.now() - t0 < RUN_MS) {
     try {
@@ -997,8 +1007,12 @@ async function main() {
         headers: { "Content-Type": "application/json" },
       });
       const j = await r.json();
-      if (!j.ok) { if (j.error_code === 409) { await new Promise(rr => setTimeout(rr, 2000)); continue; } log("getUpdates: " + j.description); break; }
-      for (const u of j.result) { offset = Math.max(offset, u.update_id + 1); await handleUpdate(u); }
+      if (!j.ok) { if (j.error_code === 409) { await new Promise(rr => setTimeout(rr, 700)); continue; } log("getUpdates: " + j.description); break; }
+      for (const u of j.result) offset = Math.max(offset, u.update_id + 1);
+      // callback-нажатия обрабатываем параллельно (мгновенный отклик), сообщения — по порядку
+      const cbs = j.result.filter(u => u.callback_query), msgs = j.result.filter(u => !u.callback_query);
+      await Promise.all(cbs.map(u => handleUpdate(u)));
+      for (const u of msgs) await handleUpdate(u);
     } catch (e) { log("loop: " + e.message); await new Promise(rr => setTimeout(rr, 3000)); }
   }
   clearInterval(tickTimer);
