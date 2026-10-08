@@ -33,7 +33,7 @@ let pass = 0; const ok = (n, c) => { assert.ok(c, n); pass++; console.log("  ✅
   const g = bot.MEM.get(C);
   ok("лобби создано, обычный игрок вступил как игрок", g && g.players.length === 1);
   ok("обычному игроку НЕ пришла панель управления", toUser(p1.id).filter(o => /boshqaruv|управлен/i.test(o.body.text || "")).length === 0);
-  ok("настоящему админу группы панель пришла", toUser(adm.id).some(o => /boshqaruv/i.test(o.body.text || "")));
+  ok("НИКОМУ (даже админу) панель управления в ЛС не пришла", OUT.filter(o => /boshqaruv|управлен/i.test(o.body.text || "") && o.body.chat_id > 0).length === 0);
   for (let i = 2; i <= 5; i++) await bot.handleUpdate(cb(mk(i), "j", C));
   ok("5 игроков в лобби", g.players.length === 5);
 

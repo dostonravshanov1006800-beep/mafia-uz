@@ -12,6 +12,7 @@ const IS_MAIN = typeof require !== "undefined" && require.main === module;
 
 /* ---------- GitHub как хранилище (шифрованное) ---------- */
 const GH_REPO = process.env.GH_REPO || "dostonravshanov1006800-beep/mafia-uz";
+const BOT_USERNAME = process.env.BOT_USERNAME || "mafiauzs_bot";
 const BANNER = "https://raw.githubusercontent.com/" + GH_REPO + "/main/assets/banner.jpg";
 const CHANNEL = (process.env.MAFIA_CHANNEL || "").trim(); // @kanal — пусто = проверка выключена
 const SUB_STUB = new Set(); // для тестов: «не подписан»
@@ -168,7 +169,21 @@ const T = {
   voteTie:     { ru: "⚖️ Голоса разделились! Повторное голосование: {names} (45 сек).", uz: "⚖️ Ovozlar teng boʻldi! Qayta ovoz berish: {names} (45 sek)." },
   lobbyEmpty:  { ru: "🚪 Все ушли — лобби закрыто. Начните новую игру командой /start.", uz: "🚪 Hammasi chiqib ketdi — lobbi yopildi. Yangi oʻyin uchun /start yozing." },
   youDied:     { ru: "☠️ Вы выбыли из этой игры — дожидайтесь её конца.", uz: "☠️ Siz bu oʻyindan chiqdingiz — oʻyin tugashini kuting." },
-  cmdHint:     { ru: "🤔 Не знаю такую команду. Доступны: /start — игра, /rules — правила, /top — рейтинг, /me — профиль, /skip — пропустить (админ), /end — завершить (админ).", uz: "🤔 Bunday buyruq yoʻq. Mavjudlari: /start — oʻyin, /rules — qoidalar, /top — reyting, /me — profil, /skip — oʻtkazish (admin), /end — yakunlash (admin)." },
+  pmHello:     { ru: "👋 <b>Привет!</b>\nЯ бот-ведущий для игры в <b>Мафию</b> 🎭", uz: "👋 <b>Salom!</b>\nMen <b>Mafiya</b> oʻyinining yetakchi botiman 🎭" },
+  btnAddGame:  { ru: "➕ Добавить игру в свой чат", uz: "➕ Oʻyinni guruhingizga qoʻshish" },
+  btnJoinGame: { ru: "🎲 Подключиться к игре", uz: "🎲 Oʻyinga qoʻshilish" },
+  btnRules:    { ru: "🃏 Правила игры", uz: "🃏 Oʻyin qoidalari" },
+  btnLangPm:   { ru: "🌍 Язык", uz: "🌍 Til" },
+  btnProfile:  { ru: "👤 Профиль", uz: "👤 Profil" },
+  btnBack:     { ru: "◀️ Назад", uz: "◀️ Orqaga" },
+  langTitle:   { ru: "🌍 Выберите язык", uz: "🌍 Tilni tanlang" },
+  langSaved:   { ru: "✅ Язык: русский", uz: "✅ Til: oʻzbek tili" },
+  joinHow:     { ru: "🎲 <b>Как подключиться к игре</b>\n\nОткройте группу, где идёт набор игроков, и нажмите «🎭 Вступить» под сообщением лобби. Роль придёт вам сюда, в личку.\n\nЕсли игры нет — любой участник группы пишет /game.", uz: "🎲 <b>Oʻyinga qanday qoʻshilish</b>\n\nOʻyinchilar yigʻilayotgan guruhni oching va lobbi xabari ostidagi «🎭 Qoʻshilish» tugmasini bosing. Rolingiz shu yerga, shaxsiy chatga keladi.\n\nOʻyin yoʻq boʻlsa — guruhdagi istalgan kishi /game yozadi." },
+  needAdmin:   { ru: "⚠️ Чтобы играть, сделайте меня <b>администратором</b> группы (право «Удалять сообщения»). После этого напишите /game ещё раз.", uz: "⚠️ Oʻynash uchun meni guruhda <b>administrator</b> qiling («Xabarlarni oʻchirish» huquqi bilan). Soʻng /game ni qayta yozing." },
+  startHint:   { ru: "👑 Начать игру может админ группы кнопкой «Начать».", uz: "👑 Oʻyinni guruh admini «Boshlash» tugmasi bilan boshlaydi." },
+  lobbyNeed:   { ru: "⏳ Нужно ещё минимум <b>{n}</b> игр. (минимум 4, максимума нет)", uz: "⏳ Yana kamida <b>{n}</b> oʻyinchi kerak (kamida 4 ta, chegara yoʻq)" },
+  lobbyReady:  { ru: "✅ Игроков достаточно — можно начинать! Роли подстроятся под всех.", uz: "✅ Oʻyinchilar yetarli — boshlash mumkin! Rollar hammaga moslashadi." },
+  cmdHint:     { ru: "🤔 Не знаю такую команду. Доступны: /game — игра, /rules — правила, /top — рейтинг, /me — профиль, /skip, /kick N, /end — для админов.", uz: "🤔 Bunday buyruq yoʻq. Mavjudlari: /game — oʻyin, /rules — qoidalar, /top — reyting, /me — profil, /skip, /kick N, /end — adminlar uchun." },
   roleNow:     { ru: "🎭 <b>Ваша роль:</b> {role}\n{desc}\n\n{phase}", uz: "🎭 <b>Rolingiz:</b> {role}\n{desc}\n\n{phase}" },
   inLobbyNow:  { ru: "⏳ Игра в вашей группе ещё набирает игроков. Возвращайтесь в группу и играйте!", uz: "⏳ Guruhingizdagi oʻyin hali oʻyinchilar yigʻmoqda. Guruhga qayting va oʻynang!" },
   kicked:      { ru: "🗑 {name} исключён из набора администратором.", uz: "🗑 {name} admin tomonidan oʻyindan chiqarildi." },
@@ -238,7 +253,8 @@ const P = {
   meShort:     { ru: "👤 {name} · Уровень {lvl} · ⭐ {rating} · 🪙 {coins}", uz: "👤 {name} · Sath {lvl} · ⭐ {rating} · 🪙 {coins}" },
 };
 function pt(lang, key, vars) {
-  let s = (P[key] && (P[key][lang] || P[key].ru)) || key;
+  const src = P[key] || T[key];
+  let s = (src && (src[lang] || src.ru)) || key;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
   return s;
 }
@@ -341,9 +357,20 @@ function cardOf(p, lang) {
   ].join("\n");
 }
 function pmKb(lang) {
+  const BOT = BOT_USERNAME;
   return { inline_keyboard: [
-    [{ text: pt(lang, "kbBonus"), callback_data: "B:bonus" }, { text: pt(lang, "kbTop"), callback_data: "B:top" }],
-    [{ text: pt(lang, "kbLang"), callback_data: "B:lang" }],
+    [{ text: pt(lang, "btnAddGame"), url: `https://t.me/${BOT}?startgroup=game&admin=delete_messages+pin_messages` }],
+    [{ text: pt(lang, "btnJoinGame"), callback_data: "B:join" }],
+    [{ text: pt(lang, "btnProfile"), callback_data: "B:me" }, { text: pt(lang, "kbBonus"), callback_data: "B:bonus" }],
+    [{ text: pt(lang, "kbTop"), callback_data: "B:top" }, { text: pt(lang, "btnRules"), callback_data: "B:rules" }],
+    [{ text: pt(lang, "btnLangPm"), callback_data: "B:langmenu" }],
+  ] };
+}
+function langKb(lang) {
+  return { inline_keyboard: [
+    [{ text: "🇺🇿 Oʻzbekcha", callback_data: "B:setlang:uz" }],
+    [{ text: "🇷🇺 Русский", callback_data: "B:setlang:ru" }],
+    [{ text: pt(lang, "btnBack"), callback_data: "B:home" }],
   ] };
 }
 function topText(lang) {
@@ -383,12 +410,24 @@ async function sendPmCard(uid, from, cmd) {
   if (cmd && cmd.startsWith("/top")) {
     return void (await tg("sendMessage", { chat_id: uid, text: topText(p.lang), parse_mode: "HTML", reply_markup: pmKb(p.lang) }).catch(() => {}));
   }
+  if (cmd && /^\/(me|profile)/.test(cmd)) {
+    return void (await tg("sendMessage", { chat_id: uid, text: cardOf(p, p.lang), parse_mode: "HTML", reply_markup: pmKb(p.lang) }).catch(() => {}));
+  }
   await tg("sendPhoto", { chat_id: uid, photo: BANNER, caption: "🎩 MAFIA UZ" }).catch(() => {});
-  await tg("sendMessage", { chat_id: uid, text: cardOf(p, p.lang) + "\n\n👉 " + t({ lang: p.lang }, "helpGroup"), parse_mode: "HTML", reply_markup: pmKb(p.lang) }).catch(() => {});
+  await tg("sendMessage", { chat_id: uid, text: pt(p.lang, "pmHello"), parse_mode: "HTML", reply_markup: pmKb(p.lang) }).catch(() => {});
 }
 
 /* ---------- Игровая логика ---------- */
 function numPlayers(g) { return g.players.length; }
+let BOT_ID = null;
+async function botIsAdmin(chatId) {
+  if (MEMORY_MODE) return !globalThis.__BOT_NOT_ADMIN;
+  try {
+    if (!BOT_ID) { const me = await tg("getMe", {}); BOT_ID = me.id; }
+    const m = await tg("getChatMember", { chat_id: chatId, user_id: BOT_ID });
+    return ["administrator", "creator"].includes(m && m.status);
+  } catch (e) { return true; } // не смогли проверить — не блокируем игру
+}
 async function isAdminUser(g, userId) {
   if (MEMORY_MODE && !globalThis.__STRICT_ADMIN && g.creator === userId) return true; // только для старых тестов
   g.adminCache = g.adminCache || {};
@@ -429,10 +468,11 @@ function distributeRoles(g) {
 
 function lobbyText(g) {
   const subLine = CHANNEL && !MEMORY_MODE;
-  const lines = g.players.map(p => `${p.num}. ${pName(p)}${p.id === g.creator ? " 👑" : ""}`).join("\n");
-  const need = numPlayers(g) < 4 ? "\n\n" + t(g, "lobbyMin") : "";
+  const n = numPlayers(g);
+  const lines = g.players.map(p => `${p.num}. ${pName(p)}`).join("\n");
+  const need = n < 4 ? "\n\n" + t(g, "lobbyNeed", { n: 4 - n }) : "\n\n" + t(g, "lobbyReady");
   const sub = subLine ? "\n\n" + t(g, "lobbySub") : "";
-  return `${t(g, "lobbyTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}):</b>\n${lines || "—"}${need}${sub}\n\n${t(g, "lobbyAdmin")}`;
+  return `${t(g, "lobbyTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${n}):</b>\n${lines || "—"}${need}${sub}\n\n${t(g, "startHint")}`;
 }
 function lobbyKb(g) {
   // в группе все видят только: вступить / выйти / старт (нажать старт может лишь админ)
@@ -452,7 +492,6 @@ async function createLobby(chatId, from) {
   await putGame(g);
   const jr = await tryJoin(g, from);
   if (jr === "nosub") await warnSubscribe(g, from);
-  await refreshAdminPanels(g); // панель управления — админам в личку
   return g;
 }
 
@@ -515,36 +554,12 @@ function panelText(g) {
   const lines = g.players.map(p => `${p.num}. ${pName(p)}`).join("\n");
   return `${t(g, "panelTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}):</b>\n${lines || "—"}${numPlayers(g) < 4 ? "\n\n" + t(g, "lobbyMin") : ""}`;
 }
-async function refreshAdminPanels(g) {
-  if (!g || g.phase !== "lobby") return;
-  try {
-    const ids = await groupAdmins(g);
-    g.panelMsgs = g.panelMsgs || {};
-    await Promise.all(ids.map(async (uid) => {
-      const text = panelText(g), kb = panelKb(g);
-      let done = false;
-      if (g.panelMsgs[uid]) {
-        try { await tg("editMessageText", { chat_id: uid, message_id: g.panelMsgs[uid], text, parse_mode: "HTML", reply_markup: kb }); done = true; } catch (e) {}
-      }
-      if (!done) {
-        try { const m = await tg("sendMessage", { chat_id: uid, text, parse_mode: "HTML", reply_markup: kb }); g.panelMsgs[uid] = m.message_id; } catch (e) { delete g.panelMsgs[uid]; }
-      }
-    }));
-  } catch (e) { log("panel " + e.message); }
-}
-async function closeAdminPanels(g, key) {
-  try {
-    g.panelMsgs = g.panelMsgs || {};
-    for (const uid of Object.keys(g.panelMsgs)) {
-      try { await tg("editMessageText", { chat_id: +uid, message_id: g.panelMsgs[uid], text: t(g, key) }); } catch (e) {}
-    }
-  } catch (e) {}
-  g.panelMsgs = {};
-}
+// Панелей управления в ЛС больше нет — всё внутри лобби в группе (как в топ-ботах)
+async function refreshAdminPanels() {}
+async function closeAdminPanels(g) { g.panelMsgs = {}; }
 async function refreshLobby(g) {
   try { await tg("editMessageText", { chat_id: g.chatId, message_id: g.msgId, text: lobbyText(g), parse_mode: "HTML", reply_markup: lobbyKb(g) }); }
   catch (e) { const m = await tg("sendMessage", { chat_id: g.chatId, text: lobbyText(g), parse_mode: "HTML", reply_markup: lobbyKb(g) }); g.msgId = m.message_id; }
-  refreshAdminPanels(g).catch(() => {}); // панели админам — параллельно, не задерживают лобби
 }
 
 async function startGame(g) {
@@ -822,8 +837,8 @@ async function onMessage(msg) {
       const p = await getProfile(chatId, from.first_name || "");
       return void (await tg("sendMessage", { chat_id: chatId, text: `<b>${pt(p.lang, "rulesTitle")}</b>\n\n${pt(p.lang, "rulesBody")}`, parse_mode: "HTML" }).catch(() => {}));
     }
-    if (/^\/(start|help|me|profile|bonus|top)/.test(text)) {
-      await sendPmCard(chatId, from, text);
+    if (/^\/(start|help|me|profile|bonus|top|game)/.test(text)) {
+      await sendPmCard(chatId, from, /^\/(game)/.test(text) ? "" : text);
       // игрок в активной игре? напомним роль и фазу
       if (/^\/(start|help)/.test(text)) {
         for (const g of MEM.values()) {
@@ -843,13 +858,17 @@ async function onMessage(msg) {
   }
 
   // групповой чат
-  if (text.startsWith("/start") || text.startsWith("/newgame") || text.startsWith("игра") || text.startsWith("oʻyin") || text.startsWith("oyin")) {
+  if (text.startsWith("/game") || text.startsWith("/start") || text.startsWith("/newgame") || text.startsWith("игра") || text.startsWith("oʻyin") || text.startsWith("oyin")) {
     let g = gameOf(chatId);
     if (g && g.phase !== "ended") {
       await tg("sendMessage", { chat_id: chatId, text: t(g, "gameExists") }).catch(() => {});
       return;
     }
     if (g && g.phase === "ended") { MEM.delete(chatId); }
+    if (!(await botIsAdmin(chatId))) {
+      await tg("sendMessage", { chat_id: chatId, text: t({ lang: "uz" }, "needAdmin") + "\n\n" + t({ lang: "ru" }, "needAdmin"), parse_mode: "HTML" }).catch(() => {});
+      return;
+    }
     const other = userActiveGame(from.id, chatId);
     if (other) {
       await tg("sendMessage", { chat_id: chatId, text: t({ lang: "uz" }, "oneGameUser", { name: pName({ id: from.id, name: from.first_name || from.username || "Player" }) }), parse_mode: "HTML" }).catch(() => {});
@@ -879,6 +898,17 @@ async function onMessage(msg) {
     } else if (g) {
       await tg("sendMessage", { chat_id: chatId, text: t(g, "adminOnlyCmd") }).catch(() => {});
     }
+  } else if (/^\/kick/.test(text)) {
+    const g = gameOf(chatId);
+    if (!g || g.phase !== "lobby") return;
+    if (!(await isAdminUser(g, from.id))) return void (await tg("sendMessage", { chat_id: chatId, text: t(g, "adminOnlyCmd") }).catch(() => {}));
+    const num = +(text.split(/\s+/)[1] || 0);
+    const target = byNum(g, num);
+    if (!target) return;
+    g.players = g.players.filter(p => p.id !== target.id);
+    g.players.forEach((p, i) => p.num = i + 1);
+    await refreshLobby(g); await putGame(g);
+    await tg("sendMessage", { chat_id: chatId, text: t(g, "kicked", { name: pName(target) }), parse_mode: "HTML" }).catch(() => {});
   } else if (text.startsWith("/rules") || text.startsWith("/qoida")) {
     const gl = (gameOf(chatId) || {}).lang || "uz";
     await tg("sendMessage", { chat_id: chatId, text: `<b>${t({ lang: gl }, "rulesTitle")}</b>\n\n${t({ lang: gl }, "rulesBody")}`, parse_mode: "HTML" }).catch(() => {});
@@ -925,16 +955,24 @@ async function onCallback(q) {
   try {
     // ---- кнопки профиля в личке: B:<cmd>
     if (data.startsWith("B:")) {
-      const cmd = data.slice(2);
-      if (cmd === "lang") {
-        const p = await getProfile(from.id, from.first_name || "");
-        p.lang = p.lang === "uz" ? "ru" : "uz";
-        await saveProfile(p);
-        await sendPmCard(from.id, from, "");
-        return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
-      }
-      await sendPmCard(from.id, from, cmd === "bonus" ? "/bonus" : "/top");
-      return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
+      const parts = data.split(":");
+      const cmd = parts[1];
+      const p = await getProfile(from.id, from.first_name || "");
+      const ans = (text) => tg("answerCallbackQuery", { callback_query_id: q.id, ...(text ? { text } : {}) }).catch(() => {});
+      const edit = async (text, kb) => {
+        try { await tg("editMessageText", { chat_id: from.id, message_id: q.message.message_id, text, parse_mode: "HTML", reply_markup: kb }); }
+        catch (e) { await tg("sendMessage", { chat_id: from.id, text, parse_mode: "HTML", reply_markup: kb }).catch(() => {}); }
+      };
+      await ans();
+      if (cmd === "langmenu") return void (await edit(pt(p.lang, "langTitle"), langKb(p.lang)));
+      if (cmd === "setlang") { p.lang = parts[2] === "ru" ? "ru" : "uz"; await saveProfile(p); return void (await edit(pt(p.lang, "langSaved") + "\n\n" + pt(p.lang, "pmHello"), pmKb(p.lang))); }
+      if (cmd === "home") return void (await edit(pt(p.lang, "pmHello"), pmKb(p.lang)));
+      if (cmd === "join") return void (await edit(pt(p.lang, "joinHow"), { inline_keyboard: [[{ text: pt(p.lang, "btnBack"), callback_data: "B:home" }]] }));
+      if (cmd === "rules") return void (await edit(`<b>${pt(p.lang, "rulesTitle")}</b>\n\n${pt(p.lang, "rulesBody")}`, { inline_keyboard: [[{ text: pt(p.lang, "btnBack"), callback_data: "B:home" }]] }));
+      if (cmd === "me") return void (await edit(cardOf(p, p.lang), pmKb(p.lang)));
+      if (cmd === "top") return void (await edit(topText(p.lang), pmKb(p.lang)));
+      if (cmd === "bonus") { const b = claimBonus(p); await saveProfile(p); return void (await edit(b.ok ? pt(p.lang, "bonusGot", { v: b.amount, s: p.bonusStreak }) : pt(p.lang, "bonusOld"), pmKb(p.lang))); }
+      return;
     }
 
     // ---- личные игровые действия: A:<gameChatId>:<action>
