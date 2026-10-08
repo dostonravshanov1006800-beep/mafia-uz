@@ -145,7 +145,11 @@ const T = {
   gameExists:   { ru: "Здесь уже идёт игра или набор.", uz: "Bu yerda oʻyin allaqachon davom etmoqda." },
   langSet:     { ru: "🇷🇺 Русский", uz: "🇺🇿 Oʻzbek" },
   noAdmin:     { ru: "⛔ Это могут только админы группы.", uz: "⛔ Buni faqat guruh adminlari qilishi mumkin." },
-  lobbyAdmin:  { ru: "⚙️ Старт, отмена, 🗑 кик и язык — только для админов группы.", uz: "⚙️ Start, bekor qilish, 🗑 chiqarish va til — faqat guruh adminlari uchun." },
+  lobbyAdmin:  { ru: "🎛 Управление — в личке у админов группы.", uz: "🎛 Boshqaruv paneli — guruh adminlarining shaxsiy chatida." },
+  panelTitle:  { ru: "🎛 MAFIA UZ — панель управления", uz: "🎛 MAFIA UZ — boshqaruv paneli" },
+  panelStarted:{ ru: "▶️ Игра началась! Команды в группе: /skip — пропустить фазу, /end — отменить игру.", uz: "▶️ Oʻyin boshlandi! Guruhdagi buyruqlar: /skip — fazani oʻtkazish, /end — oʻyinni bekor qilish." },
+  panelClosed: { ru: "Лобби закрыто.", uz: "Lobbi yopildi." },
+  panelNotFound:{ ru: "Лобби не найдено.", uz: "Lobbi topilmadi." },
   kicked:      { ru: "🗑 {name} исключён из набора администратором.", uz: "🗑 {name} admin tomonidan oʻyindan chiqarildi." },
   adminOnlyCmd:{ ru: "Команда только для админов группы.", uz: "Buyruq faqat guruh adminlari uchun." },
   skipped:     { ru: "⏩ Фаза пропущена админом.", uz: "⏩ Faza admin tomonidan oʻtkazildi." },
@@ -408,21 +412,11 @@ function lobbyText(g) {
   return `${t(g, "lobbyTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}):</b>\n${lines || "—"}${need}\n\n${t(g, "lobbyAdmin")}`;
 }
 function lobbyKb(g) {
-  const kb = [];
-  // для всех: вступить / выйти
-  kb.push([{ text: t(g, "btnJoin"), callback_data: "j" }, { text: t(g, "btnLeave"), callback_data: "l" }]);
-  // только админы (проверка при нажатии): старт, отмена, язык
-  kb.push([{ text: t(g, "btnStart"), callback_data: "s" }, { text: t(g, "btnCancel"), callback_data: "x" }, { text: t(g, "langSet"), callback_data: "lang" }]);
-  // кик игрока из лобби — только админы (проверка при нажатии)
-  if (g.players.length) {
-    const row = [];
-    for (const p of g.players.slice(0, 20)) {
-      row.push({ text: `🗑${p.num}`, callback_data: `k:${p.num}` });
-      if (row.length >= 5) { kb.push(row.splice(0)); }
-    }
-    if (row.length) kb.push(row);
-  }
-  return { inline_keyboard: kb };
+  // в группе все видят только: вступить / выйти / старт (нажать старт может лишь админ)
+  return { inline_keyboard: [
+    [{ text: t(g, "btnJoin"), callback_data: "j" }, { text: t(g, "btnLeave"), callback_data: "l" }],
+    [{ text: t(g, "btnStart"), callback_data: "s" }],
+  ] };
 }
 
 async function createLobby(chatId, from) {
@@ -434,6 +428,7 @@ async function createLobby(chatId, from) {
   g.msgId = m.message_id;
   await putGame(g);
   await tryJoin(g, from);
+  await refreshAdminPanels(g); // панель управления — админам в личку
   return g;
 }
 
@@ -443,9 +438,62 @@ async function tryJoin(g, from) {
   await refreshLobby(g);
   return true;
 }
+async function groupAdmins(g) {
+  g.admListCache = g.admListCache || {};
+  const c = g.admListCache;
+  if (c.list && Date.now() - c.ts < 3600e3) return c.list;
+  const ids = new Set([g.creator]);
+  try {
+    const arr = await tg("getChatAdministrators", { chat_id: g.chatId });
+    if (Array.isArray(arr)) for (const m of arr) if (m.user && m.user.id) ids.add(m.user.id);
+  } catch (e) {}
+  c.list = [...ids]; c.ts = Date.now();
+  return c.list;
+}
+function panelKb(g) {
+  const kb = [[{ text: t(g, "btnStart"), callback_data: `S:${g.chatId}` }, { text: t(g, "btnCancel"), callback_data: `X:${g.chatId}` }, { text: t(g, "langSet"), callback_data: `L:${g.chatId}` }]];
+  const row = [];
+  for (const p of g.players.slice(0, 20)) {
+    row.push({ text: `🗑${p.num}`, callback_data: `K:${g.chatId}:${p.num}` });
+    if (row.length >= 5) { kb.push(row.splice(0)); }
+  }
+  if (row.length) kb.push(row);
+  return { inline_keyboard: kb };
+}
+function panelText(g) {
+  const lines = g.players.map(p => `${p.num}. ${pName(p)}`).join("\n");
+  return `${t(g, "panelTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}):</b>\n${lines || "—"}${numPlayers(g) < 4 ? "\n\n" + t(g, "lobbyMin") : ""}`;
+}
+async function refreshAdminPanels(g) {
+  if (!g || g.phase !== "lobby") return;
+  try {
+    const ids = await groupAdmins(g);
+    g.panelMsgs = g.panelMsgs || {};
+    for (const uid of ids) {
+      const text = panelText(g), kb = panelKb(g);
+      let done = false;
+      if (g.panelMsgs[uid]) {
+        try { await tg("editMessageText", { chat_id: uid, message_id: g.panelMsgs[uid], text, parse_mode: "HTML", reply_markup: kb }); done = true; } catch (e) {}
+      }
+      if (!done) {
+        try { const m = await tg("sendMessage", { chat_id: uid, text, parse_mode: "HTML", reply_markup: kb }); g.panelMsgs[uid] = m.message_id; } catch (e) { delete g.panelMsgs[uid]; }
+      }
+    }
+  } catch (e) { log("panel " + e.message); }
+}
+async function closeAdminPanels(g, key) {
+  try {
+    g.panelMsgs = g.panelMsgs || {};
+    for (const uid of Object.keys(g.panelMsgs)) {
+      try { await tg("editMessageText", { chat_id: +uid, message_id: g.panelMsgs[uid], text: t(g, key) }); } catch (e) {}
+    }
+  } catch (e) {}
+  g.panelMsgs = {};
+}
 async function refreshLobby(g) {
   try { await tg("editMessageText", { chat_id: g.chatId, message_id: g.msgId, text: lobbyText(g), parse_mode: "HTML", reply_markup: lobbyKb(g) }); }
   catch (e) { const m = await tg("sendMessage", { chat_id: g.chatId, text: lobbyText(g), parse_mode: "HTML", reply_markup: lobbyKb(g) }); g.msgId = m.message_id; }
+  await refreshAdminPanels(g);
 }
 
 async function startGame(g) {
@@ -819,6 +867,37 @@ async function onCallback(q) {
 
     // ---- групповые кнопки лобби
     const g = gameOf(chatId);
+    const pm = data.match(/^([SXLK]):(-?\d+)(?::(\d+))?$/); // кнопки из ЛС-панели админа
+    if (pm) {
+      const g2 = gameOf(+pm[2]);
+      if (!g2 || g2.phase !== "lobby") return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: g2 ? t(g2, "panelClosed") : t({ lang: "uz" }, "panelNotFound") }));
+      if (!(await isAdminUser(g2, from.id))) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g2, "noAdmin") }));
+      if (pm[1] === "S") {
+        if (numPlayers(g2) < 4) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g2, "tooFew") }));
+        await tg("answerCallbackQuery", { callback_query_id: q.id });
+        await startGame(g2);
+        if (g2.phase !== "lobby") await closeAdminPanels(g2, "panelStarted");
+      } else if (pm[1] === "X") {
+        g2.phase = "ended";
+        await closeAdminPanels(g2, "panelClosed");
+        await tg("sendMessage", { chat_id: g2.chatId, text: t(g2, "gameCancelled") }).catch(() => {});
+        await putGame(g2); MEM.delete(g2.chatId);
+        await tg("answerCallbackQuery", { callback_query_id: q.id });
+      } else if (pm[1] === "L") {
+        g2.lang = g2.lang === "uz" ? "ru" : "uz";
+        await refreshLobby(g2); await putGame(g2);
+        await tg("answerCallbackQuery", { callback_query_id: q.id, text: g2.lang === "uz" ? "🇺🇿 Oʻzbek" : "🇷🇺 Русский" });
+      } else if (pm[1] === "K") {
+        const target = byNum(g2, +pm[3]);
+        if (!target) return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
+        g2.players = g2.players.filter(p => p.id !== target.id);
+        g2.players.forEach((p, i) => p.num = i + 1);
+        await refreshLobby(g2); await putGame(g2);
+        await tg("sendMessage", { chat_id: g2.chatId, text: t(g2, "kicked", { name: pName(target) }), parse_mode: "HTML" }).catch(() => {});
+        await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g2, "actDone") });
+      }
+      return;
+    }
     if (data === "j") {
       if (!g) return;
       if (g.phase !== "lobby") return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
@@ -838,10 +917,12 @@ async function onCallback(q) {
       if (numPlayers(g) < 4) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "tooFew") }));
       await tg("answerCallbackQuery", { callback_query_id: q.id });
       await startGame(g);
+      if (g.phase !== "lobby") await closeAdminPanels(g, "panelStarted");
     } else if (data === "x") {
       if (!g) return;
       if (!(await isAdminUser(g, from.id))) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "noAdmin") }));
       g.phase = "ended";
+      await closeAdminPanels(g, "panelClosed");
       await tg("sendMessage", { chat_id: chatId, text: t(g, "gameCancelled") }).catch(() => {});
       await putGame(g);
       MEM.delete(chatId);
