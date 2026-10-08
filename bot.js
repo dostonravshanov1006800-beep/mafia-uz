@@ -143,6 +143,11 @@ const T = {
   cantVoteSelf: { ru: "За себя голосовать нельзя.", uz: "Oʻzingizga ovoz berib boʻlmaydi." },
   gameExists:   { ru: "Здесь уже идёт игра или набор.", uz: "Bu yerda oʻyin allaqachon davom etmoqda." },
   langSet:     { ru: "🇷🇺 Русский", uz: "🇺🇿 Oʻzbek" },
+  noAdmin:     { ru: "⛔ Это могут только админы группы.", uz: "⛔ Buni faqat guruh adminlari qilishi mumkin." },
+  lobbyAdmin:  { ru: "⚙️ Старт, отмена, 🗑 кик и язык — только для админов группы.", uz: "⚙️ Start, bekor qilish, 🗑 chiqarish va til — faqat guruh adminlari uchun." },
+  kicked:      { ru: "🗑 {name} исключён из набора администратором.", uz: "🗑 {name} admin tomonidan oʻyindan chiqarildi." },
+  adminOnlyCmd:{ ru: "Команда только для админов группы.", uz: "Buyruq faqat guruh adminlari uchun." },
+  skipped:     { ru: "⏩ Фаза пропущена админом.", uz: "⏩ Faza admin tomonidan oʻtkazildi." },
 };
 
 /* Роли */
@@ -357,6 +362,18 @@ async function sendPmCard(uid, from, cmd) {
 
 /* ---------- Игровая логика ---------- */
 function numPlayers(g) { return g.players.length; }
+async function isAdminUser(g, userId) {
+  if (g.creator === userId) return true; // создатель лобби всегда может управлять
+  g.adminCache = g.adminCache || {};
+  const c = g.adminCache[userId];
+  if (c && Date.now() - c.ts < 3600e3) return c.ok;
+  try {
+    const m = await tg("getChatMember", { chat_id: g.chatId, user_id: userId });
+    const ok = ["administrator", "creator"].includes(m && m.status);
+    g.adminCache[userId] = { ok, ts: Date.now() };
+    return ok;
+  } catch (e) { return false; }
+}
 function alive(g) { return g.players.filter(p => p.alive); }
 function aliveCiv(g) { return g.players.filter(p => p.alive && !["don", "mafia"].includes(p.role)); }
 function aliveMafia(g) { return g.players.filter(p => p.alive && ["don", "mafia"].includes(p.role)); }
@@ -384,19 +401,25 @@ function distributeRoles(g) {
 }
 
 function lobbyText(g) {
-  const L = g.lang;
   const lines = g.players.map(p => `${p.num}. ${pName(p)}${p.id === g.creator ? " 👑" : ""}`).join("\n");
   const need = numPlayers(g) < 4 ? "\n\n" + t(g, "lobbyMin") : "";
-  return `${t(g, "lobbyTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}):</b>\n${lines || "—"}${need}`;
+  return `${t(g, "lobbyTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}):</b>\n${lines || "—"}${need}\n\n${t(g, "lobbyAdmin")}`;
 }
 function lobbyKb(g) {
-  const inGame = g.players.length > 0;
   const kb = [];
+  // для всех: вступить / выйти
   kb.push([{ text: t(g, "btnJoin"), callback_data: "j" }, { text: t(g, "btnLeave"), callback_data: "l" }]);
-  const row2 = [{ text: t(g, "btnStart"), callback_data: "s" }];
-  if (g.creator) row2.push({ text: t(g, "btnCancel"), callback_data: "x" });
-  kb.push(row2);
-  kb.push([{ text: t(g, "langSet"), callback_data: "lang" }]);
+  // только админы (проверка при нажатии): старт, отмена, язык
+  kb.push([{ text: t(g, "btnStart"), callback_data: "s" }, { text: t(g, "btnCancel"), callback_data: "x" }, { text: t(g, "langSet"), callback_data: "lang" }]);
+  // кик игрока из лобби — только админы (проверка при нажатии)
+  if (g.players.length) {
+    const row = [];
+    for (const p of g.players.slice(0, 20)) {
+      row.push({ text: `🗑${p.num}`, callback_data: `k:${p.num}` });
+      if (row.length >= 5) { kb.push(row.splice(0)); }
+    }
+    if (row.length) kb.push(row);
+  }
   return { inline_keyboard: kb };
 }
 
@@ -700,10 +723,22 @@ async function onMessage(msg) {
     await tg("sendMessage", { chat_id: chatId, text: cardOf(p, gl), parse_mode: "HTML" }).catch(() => {});
   } else if (text.startsWith("/end") || text.startsWith("/stop")) {
     const g = gameOf(chatId);
-    if (g && g.creator === from.id) {
+    if (g && (await isAdminUser(g, from.id))) {
       g.phase = "ended";
       await tg("sendMessage", { chat_id: chatId, text: t(g, "gameCancelled") }).catch(() => {});
       await putGame(g); MEM.delete(chatId);
+    } else if (g) {
+      await tg("sendMessage", { chat_id: chatId, text: t(g, "adminOnlyCmd") }).catch(() => {});
+    }
+  } else if (text.startsWith("/skip")) {
+    const g = gameOf(chatId);
+    if (!g) return;
+    if (!(await isAdminUser(g, from.id))) return void (await tg("sendMessage", { chat_id: chatId, text: t(g, "adminOnlyCmd") }).catch(() => {}));
+    if (g.phase === "night" || g.phase === "day" || g.phase === "vote") {
+      g.phaseData.deadline = 0;
+      await tg("sendMessage", { chat_id: chatId, text: t(g, "skipped") }).catch(() => {});
+      await putGame(g);
+      await tick();
     }
   }
 }
@@ -796,13 +831,13 @@ async function onCallback(q) {
       await tg("answerCallbackQuery", { callback_query_id: q.id });
     } else if (data === "s") {
       if (!g) return;
-      if (from.id !== g.creator) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "noCreator") }));
+      if (!(await isAdminUser(g, from.id))) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "noAdmin") }));
       if (numPlayers(g) < 4) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "tooFew") }));
       await tg("answerCallbackQuery", { callback_query_id: q.id });
       await startGame(g);
     } else if (data === "x") {
       if (!g) return;
-      if (from.id !== g.creator) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "noCreator") }));
+      if (!(await isAdminUser(g, from.id))) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "noAdmin") }));
       g.phase = "ended";
       await tg("sendMessage", { chat_id: chatId, text: t(g, "gameCancelled") }).catch(() => {});
       await putGame(g);
@@ -810,10 +845,22 @@ async function onCallback(q) {
       await tg("answerCallbackQuery", { callback_query_id: q.id });
     } else if (data === "lang") {
       if (!g || g.phase !== "lobby") return;
+      if (!(await isAdminUser(g, from.id))) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "noAdmin") }));
       g.lang = g.lang === "uz" ? "ru" : "uz";
       await refreshLobby(g);
       await putGame(g);
       await tg("answerCallbackQuery", { callback_query_id: q.id, text: g.lang === "uz" ? "🇺🇿 Oʻzbek" : "🇷🇺 Русский" });
+    } else if (data.startsWith("k:")) { // кик из лобби — админ
+      if (!g || g.phase !== "lobby") return;
+      if (!(await isAdminUser(g, from.id))) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "noAdmin") }));
+      const target = byNum(g, +data.slice(2));
+      if (!target) return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
+      g.players = g.players.filter(p => p.id !== target.id);
+      g.players.forEach((p, i) => p.num = i + 1);
+      await refreshLobby(g);
+      await putGame(g);
+      await tg("sendMessage", { chat_id: chatId, text: t(g, "kicked", { name: pName(target) }), parse_mode: "HTML" }).catch(() => {});
+      await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "actDone") });
     } else if (data === "r") { // играть снова
       if (!g) return;
       const old = g.players.map(p => ({ ...p }));
