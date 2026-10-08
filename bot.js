@@ -15,6 +15,7 @@ const GH_REPO = process.env.GH_REPO || "dostonravshanov1006800-beep/mafia-uz";
 const BANNER = "https://raw.githubusercontent.com/" + GH_REPO + "/main/assets/banner.jpg";
 const CHANNEL = (process.env.MAFIA_CHANNEL || "").trim(); // @kanal — пусто = проверка выключена
 const SUB_STUB = new Set(); // для тестов: «не подписан»
+let CMD_HINT = {}; // подсказка про команды — раз в час на группу
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || process.env.GITHUB_ACCESS_TOKEN || "";
 const GH_API = "https://api.github.com";
 const MEMORY_MODE = process.env.MAFIA_MEMORY === "1"; // для тестов
@@ -162,6 +163,14 @@ const T = {
   oneGameUser: { ru: "❗ {name}, вы сейчас играете в другой группе. Новое лобби можно открыть после завершения той игры.", uz: "❗ {name}, siz hozir boshqa guruhda oʻyindasiz. Yangi lobbi oʻsha oʻyin tugagach ochiladi." },
   btnCheck:    { ru: "✅ Проверить", uz: "✅ Tekshirish" },
   btnChannel:  { ru: "📢 Подписаться на канал", uz: "📢 Kanalga obuna boʻlish" },
+  rulesTitle:  { ru: "📜 Правила «Мафии»", uz: "📜 «Mafiya» qoidalari" },
+  rulesBody:   { ru: "🌆 <b>Ночь</b>: мафия выбирает жертву, доктор лечит, комиссар проверяет.\n⚖️ <b>Днём</b> — обсуждение и голосование: город изгоняет подозреваемого.\n\n🔪 <b>Дон</b> — глава мафии.\n🎭 <b>Мафия</b> — убивает по ночам.\n💊 <b>Доктор</b> — спасает жертву (себя — не две ночи подряд).\n🕵️ <b>Комиссар</b> — узнаёт, мафия ли игрок.\n😴 <b>Мирные</b> — вычисляют мафию днём.\n\n🏆 Город побеждает, если вся мафия изгнана. Мафия побеждает, когда её станет столько же, сколько мирных.", uz: "🌆 <b>Tun</b>: mafiya qurbon tanlaydi, doktor davolaydi, komissar tekshiradi.\n⚖️ <b>Kunduzi</b> — muhokama va ovoz berish: shahar shubhali odamni chiqarib yuboradi.\n\n🔪 <b>Don</b> — mafiya boshligʻi.\n🎭 <b>Mafiya</b> — tunda oʻldiradi.\n💊 <b>Doktor</b> — qurbonni qutqaradi (oʻzini — ikki tun ketma-ket emas).\n🕵️ <b>Komissar</b> — oʻyinchining mafiyaligini biladi.\n😴 <b>Tinch aholi</b> — kunduzi mafiyani topadi.\n\n🏆 Barcha mafiya chiqarilsa — shahar gʻolib. Mafiya tinch aholiga teng boʻlsa — mafiya gʻolib." },
+  voteTie:     { ru: "⚖️ Голоса разделились! Повторное голосование: {names} (45 сек).", uz: "⚖️ Ovozlar teng boʻldi! Qayta ovoz berish: {names} (45 sek)." },
+  lobbyEmpty:  { ru: "🚪 Все ушли — лобби закрыто. Начните новую игру командой /start.", uz: "🚪 Hammasi chiqib ketdi — lobbi yopildi. Yangi oʻyin uchun /start yozing." },
+  youDied:     { ru: "☠️ Вы выбыли из этой игры — дожидайтесь её конца.", uz: "☠️ Siz bu oʻyindan chiqdingiz — oʻyin tugashini kuting." },
+  cmdHint:     { ru: "🤔 Не знаю такую команду. Доступны: /start — игра, /rules — правила, /top — рейтинг, /me — профиль, /skip — пропустить (админ), /end — завершить (админ).", uz: "🤔 Bunday buyruq yoʻq. Mavjudlari: /start — oʻyin, /rules — qoidalar, /top — reyting, /me — profil, /skip — oʻtkazish (admin), /end — yakunlash (admin)." },
+  roleNow:     { ru: "🎭 <b>Ваша роль:</b> {role}\n{desc}\n\n{phase}", uz: "🎭 <b>Rolingiz:</b> {role}\n{desc}\n\n{phase}" },
+  inLobbyNow:  { ru: "⏳ Игра в вашей группе ещё набирает игроков. Возвращайтесь в группу и играйте!", uz: "⏳ Guruhingizdagi oʻyin hali oʻyinchilar yigʻmoqda. Guruhga qayting va oʻynang!" },
   kicked:      { ru: "🗑 {name} исключён из набора администратором.", uz: "🗑 {name} admin tomonidan oʻyindan chiqarildi." },
   adminOnlyCmd:{ ru: "Команда только для админов группы.", uz: "Buyruq faqat guruh adminlari uchun." },
   skipped:     { ru: "⏩ Фаза пропущена админом.", uz: "⏩ Faza admin tomonidan oʻtkazildi." },
@@ -584,7 +593,11 @@ async function beginNight(g) {
   // личные действия
   for (const p of alive(g)) {
     if (["don", "mafia"].includes(p.role)) await pmTargetChoice(g, p, "nightMafia", "n", alive(g).filter(x => !["don","mafia"].includes(x.role)), "🔪");
-    else if (p.role === "doctor") await pmTargetChoice(g, p, "nightDoctor", "n", alive(g), "💊");
+    else if (p.role === "doctor") {
+      let dlist = alive(g);
+      if ((g.prevHealSelf || {})[p.id]) dlist = dlist.filter(x => x.id !== p.id); // себя — не две ночи подряд
+      await pmTargetChoice(g, p, "nightDoctor", "n", dlist, "💊");
+    }
     else if (p.role === "sheriff") await pmTargetChoice(g, p, "nightSheriff", "n", alive(g).filter(x => x.id !== p.id), "🕵️");
   }
   await putGame(g);
@@ -650,6 +663,12 @@ async function updateStatus(g, leftSec) {
 
 async function resolveNight(g) {
   const a = g.phaseData.actions || {};
+  // запоминаем, кто лечил себя этой ночью
+  g.prevHealSelf = {};
+  for (const [duid, dtn] of Object.entries(a.doctors || {})) {
+    const dp = g.players.find(x => x.id === +duid);
+    if (dp && dtn === dp.num) g.prevHealSelf[+duid] = true;
+  }
   const victim = a.mafia ? byNum(g, a.mafia) : null;
   const heals = Object.values(a.doctors || {}).filter(v => v !== null && v !== undefined);
   const saved = victim && heals.includes(a.mafia);
@@ -689,14 +708,15 @@ async function resolveNight(g) {
   await putGame(g);
 }
 
-async function beginVote(g) {
+async function beginVote(g, cands) {
   g.phase = "vote";
-  g.phaseData = { votes: {}, deadline: Date.now() + 60_000, shown: 999 };
+  g.phaseData = { votes: {}, deadline: Date.now() + (cands ? 45_000 : 60_000), shown: 999, revote: !!cands };
   await putGame(g);
-  const m = await tg("sendMessage", { chat_id: g.chatId, text: t(g, "voteAsk"), parse_mode: "HTML" });
+  const m = await tg("sendMessage", { chat_id: g.chatId, text: cands ? t(g, "voteAsk") : t(g, "voteAsk"), parse_mode: "HTML" });
   g.statusMsgId = m.message_id;
+  const pool = cands || alive(g);
   for (const p of alive(g)) {
-    await pmTargetChoice(g, p, "votePM", "v", alive(g).filter(x => x.id !== p.id), "⚖️");
+    await pmTargetChoice(g, p, "votePM", "v", pool.filter(x => x.id !== p.id), "⚖️");
   }
 }
 
@@ -714,6 +734,13 @@ async function resolveVote(g) {
   for (const n of Object.keys(tally)) {
     if (tally[n] > max) { max = tally[n]; lynched = byNum(g, +n); tie = false; }
     else if (tally[n] === max) tie = true;
+  }
+  if (lynched && tie && !g.phaseData.revote) {
+    // повторное голосование только по связавшимся
+    const tiedNums = Object.keys(tally).filter(n => tally[n] === max);
+    const tied = tiedNums.map(n => byNum(g, +n)).filter(Boolean);
+    await tg("sendMessage", { chat_id: g.chatId, text: t(g, "voteTie", { names: tied.map(pName).join(", ") }), parse_mode: "HTML" }).catch(() => {});
+    return void await beginVote(g, tied);
   }
   if (lynched && !tie) {
     lynched.alive = false;
@@ -790,8 +817,26 @@ async function onMessage(msg) {
   if (!from || from.is_bot) return;
 
   if (msg.chat.type === "private") {
+    if (/^\/(rules|qoida)/.test(text)) {
+      const p = await getProfile(chatId, from.first_name || "");
+      return void (await tg("sendMessage", { chat_id: chatId, text: `<b>${pt(p.lang, "rulesTitle")}</b>\n\n${pt(p.lang, "rulesBody")}`, parse_mode: "HTML" }).catch(() => {}));
+    }
     if (/^\/(start|help|me|profile|bonus|top)/.test(text)) {
       await sendPmCard(chatId, from, text);
+      // игрок в активной игре? напомним роль и фазу
+      if (/^\/(start|help)/.test(text)) {
+        for (const g of MEM.values()) {
+          if (g.phase === "ended") continue;
+          const p = g.players.find(x => x.id === chatId);
+          if (!p) continue;
+          if (g.phase === "lobby") { await tg("sendMessage", { chat_id: chatId, text: t(g, "inLobbyNow") }).catch(() => {}); }
+          else {
+            const phase = g.phase === "night" ? t(g, "nightTitle", { n: g.dayNo }) : g.phase === "vote" ? t(g, "voteAsk") : t(g, "dayTitle", { n: g.dayNo });
+            await tg("sendMessage", { chat_id: chatId, text: t(g, "roleNow", { role: roleName(p.role, g.lang), desc: p.alive ? roleDesc(p.role, g.lang) : t(g, "youDied"), phase: p.alive ? phase : "" }), parse_mode: "HTML" }).catch(() => {});
+          }
+          break;
+        }
+      }
     }
     return;
   }
@@ -833,6 +878,17 @@ async function onMessage(msg) {
     } else if (g) {
       await tg("sendMessage", { chat_id: chatId, text: t(g, "adminOnlyCmd") }).catch(() => {});
     }
+  } else if (text.startsWith("/rules") || text.startsWith("/qoida")) {
+    const gl = (gameOf(chatId) || {}).lang || "uz";
+    await tg("sendMessage", { chat_id: chatId, text: `<b>${t({ lang: gl }, "rulesTitle")}</b>\n\n${t({ lang: gl }, "rulesBody")}`, parse_mode: "HTML" }).catch(() => {});
+  } else if (text.startsWith("/lang") || text.startsWith("/til")) {
+    const g = gameOf(chatId);
+    if (g && g.phase === "lobby") {
+      if (!(await isAdminUser(g, from.id))) return void (await tg("sendMessage", { chat_id: chatId, text: t(g, "adminOnlyCmd") }).catch(() => {}));
+      g.lang = g.lang === "uz" ? "ru" : "uz";
+      await refreshLobby(g); await putGame(g);
+      await tg("sendMessage", { chat_id: chatId, text: g.lang === "uz" ? "🇺🇿 Til: oʻzbek" : "🇷🇺 Язык: русский" }).catch(() => {});
+    }
   } else if (text.startsWith("/skip")) {
     const g = gameOf(chatId);
     if (!g) return;
@@ -842,6 +898,14 @@ async function onMessage(msg) {
       await tg("sendMessage", { chat_id: chatId, text: t(g, "skipped") }).catch(() => {});
       await putGame(g);
       await tick();
+    }
+  } else if (/^\//.test(text)) {
+    // неизвестная команда — короткая подсказка (не чаще раза в час на группу)
+    const now = Date.now();
+    if (!CMD_HINT[chatId] || now - CMD_HINT[chatId] > 3600e3) {
+      CMD_HINT[chatId] = now;
+      const gl = (gameOf(chatId) || {}).lang || "uz";
+      await tg("sendMessage", { chat_id: chatId, text: t({ lang: gl }, "cmdHint") }).catch(() => {});
     }
   }
 }
@@ -990,6 +1054,13 @@ async function onCallback(q) {
       g.players = g.players.filter(p => p.id !== from.id);
       g.players.forEach((p, i) => p.num = i + 1);
       await tg("answerCallbackQuery", { callback_query_id: q.id });
+      if (!g.players.length) { // все ушли — лобби закрывается само
+        g.phase = "ended";
+        await closeAdminPanels(g, "panelClosed");
+        try { await tg("editMessageText", { chat_id: g.chatId, message_id: g.msgId, text: t(g, "lobbyEmpty") }); } catch (e) { await tg("sendMessage", { chat_id: g.chatId, text: t(g, "lobbyEmpty") }).catch(() => {}); }
+        await putGame(g); MEM.delete(chatId);
+        return;
+      }
       bg(async () => { await refreshLobby(g); await putGame(g); });
     } else if (data === "s") {
       if (!g) return;
