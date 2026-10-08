@@ -24,4 +24,5 @@ jobs:
         env:
           MAFIA_BOT_TOKEN: ${{ secrets.MAFIA_BOT_TOKEN }}
           MAFIA_STATE_KEY: ${{ secrets.MAFIA_STATE_KEY }}
+          MAFIA_CHANNEL: ${{ secrets.MAFIA_CHANNEL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

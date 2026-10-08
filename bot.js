@@ -13,6 +13,8 @@ const IS_MAIN = typeof require !== "undefined" && require.main === module;
 /* ---------- GitHub как хранилище (шифрованное) ---------- */
 const GH_REPO = process.env.GH_REPO || "dostonravshanov1006800-beep/mafia-uz";
 const BANNER = "https://raw.githubusercontent.com/" + GH_REPO + "/main/assets/banner.jpg";
+const CHANNEL = (process.env.MAFIA_CHANNEL || "").trim(); // @kanal — пусто = проверка выключена
+const SUB_STUB = new Set(); // для тестов: «не подписан»
 const GH_TOKEN = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || process.env.GITHUB_ACCESS_TOKEN || "";
 const GH_API = "https://api.github.com";
 const MEMORY_MODE = process.env.MAFIA_MEMORY === "1"; // для тестов
@@ -152,6 +154,14 @@ const T = {
   panelStarted:{ ru: "▶️ Игра началась! Команды в группе: /skip — пропустить фазу, /end — отменить игру.", uz: "▶️ Oʻyin boshlandi! Guruhdagi buyruqlar: /skip — fazani oʻtkazish, /end — oʻyinni bekor qilish." },
   panelClosed: { ru: "Лобби закрыто.", uz: "Lobbi yopildi." },
   panelNotFound:{ ru: "Лобби не найдено.", uz: "Lobbi topilmadi." },
+  lobbySub:    { ru: "📢 Для игры нужна подписка на наш канал.", uz: "📢 Oʻyin uchun kanalimizga obuna boʻlish shart." },
+  subWarn:     { ru: "📢 <b>{name}, подпишитесь!</b>\nИгра откроется после подписки на канал. Нажмите «Подписаться», затем «✅ Проверить».", uz: "📢 <b>{name}, obuna boʻling!</b>\nKanalga obuna boʻlgach oʻyniy olasiz. Avval «Obuna boʻlish», keyin «✅ Tekshirish»ni bosing." },
+  subPopup:    { ru: "❌ Сначала подпишитесь на канал!", uz: "❌ Avval kanalga obuna boʻling!" },
+  subNotYet:   { ru: "❌ Подписка не найдена. Подпишитесь и нажмите ещё раз.", uz: "❌ Obuna topilmadi. Kanalga qoʻshilib, qayta bosing." },
+  subOk:       { ru: "✅ Спасибо! Вы в игре.", uz: "✅ Rahmat! Siz oʻyindasiz." },
+  oneGameUser: { ru: "❗ {name}, вы сейчас играете в другой группе. Новое лобби можно открыть после завершения той игры.", uz: "❗ {name}, siz hozir boshqa guruhda oʻyindasiz. Yangi lobbi oʻsha oʻyin tugagach ochiladi." },
+  btnCheck:    { ru: "✅ Проверить", uz: "✅ Tekshirish" },
+  btnChannel:  { ru: "📢 Подписаться на канал", uz: "📢 Kanalga obuna boʻlish" },
   kicked:      { ru: "🗑 {name} исключён из набора администратором.", uz: "🗑 {name} admin tomonidan oʻyindan chiqarildi." },
   adminOnlyCmd:{ ru: "Команда только для админов группы.", uz: "Buyruq faqat guruh adminlari uchun." },
   skipped:     { ru: "⏩ Фаза пропущена админом.", uz: "⏩ Faza admin tomonidan oʻtkazildi." },
@@ -409,9 +419,11 @@ function distributeRoles(g) {
 }
 
 function lobbyText(g) {
+  const subLine = CHANNEL && !MEMORY_MODE;
   const lines = g.players.map(p => `${p.num}. ${pName(p)}${p.id === g.creator ? " 👑" : ""}`).join("\n");
   const need = numPlayers(g) < 4 ? "\n\n" + t(g, "lobbyMin") : "";
-  return `${t(g, "lobbyTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}):</b>\n${lines || "—"}${need}\n\n${t(g, "lobbyAdmin")}`;
+  const sub = subLine ? "\n\n" + t(g, "lobbySub") : "";
+  return `${t(g, "lobbyTitle")}\n\n<b>${t(g, "lobbyPlayers")} (${numPlayers(g)}):</b>\n${lines || "—"}${need}${sub}\n\n${t(g, "lobbyAdmin")}`;
 }
 function lobbyKb(g) {
   // в группе все видят только: вступить / выйти / старт (нажать старт может лишь админ)
@@ -429,16 +441,43 @@ async function createLobby(chatId, from) {
   const m = await tg("sendMessage", { chat_id: chatId, text: lobbyText(g), parse_mode: "HTML", reply_markup: lobbyKb(g) });
   g.msgId = m.message_id;
   await putGame(g);
-  await tryJoin(g, from);
+  const jr = await tryJoin(g, from);
+  if (jr === "nosub") await warnSubscribe(g, from);
   await refreshAdminPanels(g); // панель управления — админам в личку
   return g;
 }
 
 async function tryJoin(g, from) {
   if (g.players.find(p => p.id === from.id)) return false;
+  if (!(await isSubscribed(from.id))) return "nosub";
   g.players.push({ id: from.id, num: g.players.length + 1, name: from.first_name || from.username || "Player", username: from.username || "", role: null, alive: true });
   await refreshLobby(g);
   return true;
+}
+async function isSubscribed(uid) {
+  if (MEMORY_MODE) return !SUB_STUB.has(uid);
+  if (!CHANNEL) return true;
+  try {
+    const r = await tg("getChatMember", { chat_id: CHANNEL, user_id: uid });
+    return r && ["member", "administrator", "creator"].includes(r.status);
+  } catch (e) { return true; } // бот не админ канала — не блокируем игроков
+}
+async function warnSubscribe(g, from) {
+  if (!CHANNEL) return;
+  g.subWarned = g.subWarned || [];
+  if (g.subWarned.includes(from.id)) return; // одно сообщение на игрока за лобби
+  g.subWarned.push(from.id);
+  const uname = CHANNEL.replace(/^@/, "");
+  await tg("sendMessage", { chat_id: g.chatId, text: t(g, "subWarn", { name: pName({ id: from.id, name: from.first_name || from.username || "Player" }) }), parse_mode: "HTML", reply_markup: { inline_keyboard: [
+    [{ text: t(g, "btnChannel"), url: "https://t.me/" + uname }],
+    [{ text: t(g, "btnCheck"), callback_data: `V:${g.chatId}:${from.id}` }],
+  ] } }).catch(() => {});
+}
+function userActiveGame(uid, exceptChat) {
+  for (const g of MEM.values()) {
+    if (g.chatId !== exceptChat && g.phase !== "ended" && g.players.find(p => p.id === uid)) return g;
+  }
+  return null;
 }
 async function groupAdmins(g) {
   g.admListCache = g.admListCache || {};
@@ -765,6 +804,17 @@ async function onMessage(msg) {
       return;
     }
     if (g && g.phase === "ended") { MEM.delete(chatId); }
+    const other = userActiveGame(from.id, chatId);
+    if (other) {
+      await tg("sendMessage", { chat_id: chatId, text: t({ lang: "uz" }, "oneGameUser", { name: pName({ id: from.id, name: from.first_name || from.username || "Player" }) }), parse_mode: "HTML" }).catch(() => {});
+      return;
+    }
+    if (!(await isSubscribed(from.id))) {
+      await tg("sendPhoto", { chat_id: chatId, photo: BANNER, caption: "🎩 MAFIA UZ — " + t({ lang: "uz" }, "lobbyTitle").replace("🎭 ", "") }).catch(() => {});
+      const gg = await createLobby(chatId, from); // создаёт лобби, но создатель не вступит без подписки
+      await warnSubscribe(gg, from);
+      return;
+    }
     await tg("sendPhoto", { chat_id: chatId, photo: BANNER, caption: "🎩 MAFIA UZ — " + t({ lang: "uz" }, "lobbyTitle").replace("🎭 ", "") }).catch(() => {});
     await createLobby(chatId, from);
   } else if (text.startsWith("/top")) {
@@ -874,6 +924,23 @@ async function onCallback(q) {
 
     // ---- групповые кнопки лобби
     const g = gameOf(chatId);
+    const v = data.match(/^V:(-?\d+):(\d+)$/); // «✅ Tekshirish» — проверка подписки
+    if (v) {
+      if (+v[2] !== from.id) return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
+      if (!(await isSubscribed(from.id))) return void (await tg("answerCallbackQuery", { callback_query_id: q.id, text: t({ lang: "uz" }, "subNotYet") }));
+      const g3 = gameOf(+v[1]);
+      if (g3 && g3.phase === "lobby") {
+        if (!(await isSubscribed(from.id))) return;
+        if (!g3.players.find(p => p.id === from.id)) {
+          g3.players.push({ id: from.id, num: g3.players.length + 1, name: from.first_name || from.username || "Player", username: from.username || "", role: null, alive: true });
+          await refreshLobby(g3); await putGame(g3);
+        }
+        await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g3, "subOk") });
+      } else {
+        await tg("answerCallbackQuery", { callback_query_id: q.id, text: t({ lang: "uz" }, "subOk") });
+      }
+      return;
+    }
     const pm = data.match(/^([SXLK]):(-?\d+)(?::(\d+))?$/); // кнопки из ЛС-панели админа
     if (pm) {
       const g2 = gameOf(+pm[2]);
@@ -908,6 +975,11 @@ async function onCallback(q) {
     if (data === "j") {
       if (!g) return;
       if (g.phase !== "lobby") return void (await tg("answerCallbackQuery", { callback_query_id: q.id }));
+      if (!(await isSubscribed(from.id))) {
+        await tg("answerCallbackQuery", { callback_query_id: q.id, text: t(g, "subPopup") });
+        await warnSubscribe(g, from);
+        return;
+      }
       const joined = !g.players.find(p => p.id === from.id);
       if (joined) g.players.push({ id: from.id, num: g.players.length + 1, name: from.first_name || from.username || "Player", username: from.username || "", role: null, alive: true });
       // сначала мгновенный ответ игроку, потом тяжёлое обновление в фоне
@@ -958,7 +1030,11 @@ async function onCallback(q) {
       const old = g.players.map(p => ({ ...p }));
       MEM.delete(chatId);
       const ng = await createLobby(chatId, { id: from.id, first_name: from.first_name, username: from.username });
-      for (const p of old) { if (p.id !== from.id) await tryJoin(ng, { id: p.id, first_name: p.name, username: p.username }); }
+      for (const p of old) {
+        if (p.id === from.id) continue;
+        const rj = await tryJoin(ng, { id: p.id, first_name: p.name, username: p.username });
+        if (rj === "nosub") await warnSubscribe(ng, { id: p.id, first_name: p.name, username: p.username });
+      }
       await putGame(ng);
       await tg("answerCallbackQuery", { callback_query_id: q.id });
     }
@@ -1020,4 +1096,4 @@ async function main() {
 }
 
 if (IS_MAIN) main();
-module.exports = { handleUpdate, tick, MEM, putGame, gameOf, createLobby, startGame, beginNight, beginVote, resolveNight, resolveVote, checkWin, t, tg, MEMORY_MODE, loadAll, distributeRoles, getProfile, claimBonus, PROFILES, TOP, checkAch, cardOf, levelOf, sendPmCard, topText };
+module.exports = { SUB_STUB, handleUpdate, tick, MEM, putGame, gameOf, createLobby, startGame, beginNight, beginVote, resolveNight, resolveVote, checkWin, t, tg, MEMORY_MODE, loadAll, distributeRoles, getProfile, claimBonus, PROFILES, TOP, checkAch, cardOf, levelOf, sendPmCard, topText };
