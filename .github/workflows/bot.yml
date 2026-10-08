@@ -1,0 +1,27 @@
+name: Mafia UZ bot
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: mafia-bot
+  cancel-in-progress: true
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Run game engine
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/dostonravshanov1006800-beep/mafia-uz/main/bot.js" -o bot.js
+          node bot.js
+        env:
+          MAFIA_BOT_TOKEN: ${{ secrets.MAFIA_BOT_TOKEN }}
+          MAFIA_STATE_KEY: ${{ secrets.MAFIA_STATE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
