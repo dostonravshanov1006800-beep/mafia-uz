@@ -390,7 +390,7 @@ async function sendPmCard(uid, from, cmd) {
 /* ---------- Игровая логика ---------- */
 function numPlayers(g) { return g.players.length; }
 async function isAdminUser(g, userId) {
-  if (g.creator === userId) return true; // создатель лобби всегда может управлять
+  if (MEMORY_MODE && !globalThis.__STRICT_ADMIN && g.creator === userId) return true; // только для старых тестов
   g.adminCache = g.adminCache || {};
   const c = g.adminCache[userId];
   if (c && Date.now() - c.ts < 3600e3) return c.ok;
@@ -492,11 +492,12 @@ async function groupAdmins(g) {
   g.admListCache = g.admListCache || {};
   const c = g.admListCache;
   if (c.list && Date.now() - c.ts < 3600e3) return c.list;
-  const ids = new Set([g.creator]);
+  const ids = new Set();
   try {
     const arr = await tg("getChatAdministrators", { chat_id: g.chatId });
-    if (Array.isArray(arr)) for (const m of arr) if (m.user && m.user.id) ids.add(m.user.id);
+    if (Array.isArray(arr)) for (const m of arr) if (m.user && !m.user.is_bot && m.user.id) ids.add(m.user.id);
   } catch (e) {}
+  if (MEMORY_MODE && !globalThis.__STRICT_ADMIN) ids.add(g.creator); // только для старых тестов
   c.list = [...ids]; c.ts = Date.now();
   return c.list;
 }
