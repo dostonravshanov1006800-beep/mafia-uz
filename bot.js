@@ -1178,9 +1178,37 @@ async function dispatchReplacement() {
 }
 
 /* ---------- Main loop ---------- */
+// Меню команд, описание и «Что умеет этот бот?» — ставится при каждом старте воркера (идемпотентно)
+async function setupProfile() {
+  const cmdsUz = [
+    { command: "game", description: "🎭 Oʻyinni boshlash (guruhda)" },
+    { command: "rules", description: "🃏 Oʻyin qoidalari" },
+    { command: "me", description: "👤 Mening profilim" },
+    { command: "top", description: "🏆 Reyting" },
+    { command: "bonus", description: "🎁 Kunlik bonus" },
+    { command: "skip", description: "⏭ Fazani oʻtkazish (admin)" },
+    { command: "end", description: "🛑 Oʻyinni tugatish (admin)" },
+  ];
+  const cmdsRu = [
+    { command: "game", description: "🎭 Начать игру (в группе)" },
+    { command: "rules", description: "🃏 Правила игры" },
+    { command: "me", description: "👤 Мой профиль" },
+    { command: "top", description: "🏆 Рейтинг" },
+    { command: "bonus", description: "🎁 Ежедневный бонус" },
+    { command: "skip", description: "⏭ Пропустить фазу (админ)" },
+    { command: "end", description: "🛑 Завершить игру (админ)" },
+  ];
+  await tg("setMyCommands", { commands: cmdsUz });
+  await tg("setMyCommands", { commands: cmdsRu, language_code: "ru" });
+  await tg("setMyDescription", { description: "🎭 Mafiya — Telegramdagi onlayn oʻyin!\nBotni guruhga qoʻshing, administrator qiling va guruhda /game yozing.\n\n🎭 Мафия онлайн в Telegram! Добавьте бота в группу, сделайте админом и напишите /game." });
+  await tg("setMyShortDescription", { short_description: "🎭 Mafiya / Мафия — onlayn oʻyin. Guruhda /game" });
+  await tg("setChatMenuButton", { menu_button: { type: "commands" } });
+}
+
 async function main() {
   if (!TOKEN) { console.error("Нет MAFIA_BOT_TOKEN"); return; }
   log("Mafia UZ bot запущен");
+  await setupProfile().catch(e => log("profile " + e.message));
   await loadAll();
   let offset = 0;
   const t0 = Date.now();
