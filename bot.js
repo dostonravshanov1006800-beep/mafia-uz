@@ -104,36 +104,36 @@ const T = {
   btnCancel:    { ru: "❌ Отменить", uz: "❌ Bekor qilish" },
   btnAgain:     { ru: "🎲 Играть снова", uz: "🎲 Yana oʻynash" },
   noCreator:    { ru: "Это может только создатель игры.", uz: "Buni faqat oʻyin yaratuvchisi qilishi mumkin." },
-  started:      { ru: "🎭 Игра началась! Роли отправлены в личные сообщения. Проверьте личку — если её нет, нажмите /start у бота.", uz: "🎭 Oʻyin boshlandi! Rollar shaxsiy xabarda yuborildi. Shaxsiy chatni tekshiring — boʻlmasa botga /start bosing." },
+  started:      { ru: "🎭 Игра началась! Роли отправлены в личные сообщения. Проверьте личку — если её нет, нажмите /start у бота.", uz: "🎭 Oʻyin boshlandi! Rollar shaxsiy chatga yuborildi. Chatni tekshiring — xabar kelmasa botga /start yozing." },
   nightTitle:   { ru: "🌙 НОЧЬ {n}. Город засыпает...", uz: "🌙 TUN {n}. Shahar uxlay boshlaydi..." },
-  nightWait:    { ru: "⏳ Мафия выбирает жертву, доктор готовит скальпель, комиссар идёт по следу...", uz: "⏳ Mafiya qurbonni tanlamoqda, doktor tayyorlanmoqda, komissar izlamoqda..." },
+  nightWait:    { ru: "⏳ Мафия выбирает жертву, доктор готовит скальпель, комиссар идёт по следу...", uz: "⏳ Mafiya qurbon tanlamoqda, doktor davolashga tayyorlanmoqda, komissar iz qidirmoqda..." },
   nightLeft:    { ru: "осталось {s} сек", uz: "{s} sekund qoldi" },
-  yourRole:     { ru: "🎭 Ваша роль: <b>{role}</b>\n\n{desc}", uz: "🎭 Sizning rol: <b>{role}</b>\n\n{desc}" },
+  yourRole:     { ru: "🎭 Ваша роль: <b>{role}</b>\n\n{desc}", uz: "🎭 Rolingiz: <b>{role}</b>\n\n{desc}" },
   nightMafia:   { ru: "🔪 Вы — мафия. Выберите жертву:", uz: "🔪 Siz — mafiya. Qurbonni tanlang:" },
-  nightDoctor:  { ru: "💊 Вы — доктор. Кого лечить этой ночью?", uz: "💊 Siz — doktor. Bu kecha kimga davolash?" },
+  nightDoctor:  { ru: "💊 Вы — доктор. Кого лечить этой ночью?", uz: "💊 Siz — doktor. Bu tunda kimga yordam berasiz?" },
   nightSheriff: { ru: "🕵️ Вы — комиссар. Кого проверить?", uz: "🕵️ Siz — komissar. Kimni tekshirish?" },
   chooseTarget:  { ru: "Выберите игрока:", uz: "Oʻyinchini tanlang:" },
   passNight:    { ru: "😴 Пропустить", uz: "😴 Oʻtkazib yuborish" },
   actDone:      { ru: "✅ Принято.", uz: "✅ Qabul qilindi." },
   dayTitle:     { ru: "☀️ ДЕНЬ {n}. Город просыпается!", uz: "☀️ KUN {n}. Shahar uygʻonadi!" },
-  diedNight:    { ru: "☠️ Убит этой ночью: <b>{name}</b> — был(а) {role}.", uz: "☠️ Bu kecha oʻldirilgan: <b>{name}</b> — {role} edi." },
-  savedNight:   { ru: "💊 Ночью было покушение, но доктор спас жертву! Никто не погиб.", uz: "💊 Tun hujum boʻldi, lekin doktor qutqardi! Hech kim halok boʻlmadi." },
+  diedNight:    { ru: "☠️ Убит этой ночью: <b>{name}</b> — был(а) {role}.", uz: "☠️ Bu tun qurboni: <b>{name}</b> — {role} edi." },
+  savedNight:   { ru: "💊 Ночью было покушение, но доктор спас жертву! Никто не погиб.", uz: "💊 Tunda hujum boʻldi, ammo doktor qurbonni qutqardi! Hech kim halok boʻlmadi." },
   noKill:       { ru: "😴 Ночь прошла спокойно. Никто не погиб.", uz: "😴 Tun tinch oʻtdi. Hech kim halok boʻlmadi." },
   discuss:      { ru: "🗣 Обсуждение! Кто мафия? У вас {s} секунд.", uz: "🗣 Munozara! Kim mafiya? Sizda {s} sekund bor." },
-  voteAsk:      { ru: "⚖️ Голосование! Кого казнить?", uz: "⚖️ Ovoz berish! Kimni surgun qilish?" },
-  votePM:       { ru: "⚖️ Голосуйте, кого казнить сегодня:", uz: "⚖️ Bugun kimni surgun qilish uchun ovoz bering:" },
+  voteAsk:      { ru: "⚖️ Голосование! Кого казнить?", uz: "⚖️ Ovoz berish! Kimni shahardan chiqaramiz?" },
+  votePM:       { ru: "⚖️ Голосуйте, кого казнить сегодня:", uz: "⚖️ Bugun kimni shahardan chiqaramiz? Ovozingizni bering:" },
   passVote:     { ru: "🤷 Воздержаться", uz: "🤷 Ovoz bermaslik" },
   voteLeft:     { ru: "Голосов: {c}/{t}. Осталось {s} сек.", uz: "Ovozlar: {c}/{t}. {s} sekund qoldi." },
-  lynched:      { ru: "☠️ Город решил: <b>{name}</b> казнён — был(а) {role}.", uz: "☠️ Shahar qarori: <b>{name}</b> surgun qilindi — {role} edi." },
-  noLynch:      { ru: "🤷 Город не смог решить. Никого не казнили.", uz: "🤷 Shahar qaror qila olmadi. Hech kim surgun qilinmadi." },
+  lynched:      { ru: "☠️ Город решил: <b>{name}</b> казнён — был(а) {role}.", uz: "☠️ Shahar qarori: <b>{name}</b> shahardan chiqarildi — {role} edi." },
+  noLynch:      { ru: "🤷 Город не смог решить. Никого не казнили.", uz: "🤷 Shahar qaror qila olmadi. Hech kim shahardan chiqarilmadi." },
   winMafia:     { ru: "🏆 МАФИЯ ПОБЕДИЛА!", uz: "🏆 MAFIYA GʻALABA QILDI!" },
-  winCiv:       { ru: "🏆 МИРНЫЕ ПОБЕДИЛИ! Вся мафия уничтожена.", uz: "🏆 TINCH AHLI GʻALABA QILDI! Barcha mafiya yoʻq qilindi." },
+  winCiv:       { ru: "🏆 МИРНЫЕ ПОБЕДИЛИ! Вся мафия уничтожена.", uz: "🏆 TINCH AHLI GʻALABA QILDI! Butun mafiya yoʻq qilindi." },
   rolesWere:    { ru: "🎭 Роли:", uz: "🎭 Rollar:" },
   gameCancelled: { ru: "❌ Игра отменена.", uz: "❌ Oʻyin bekor qilindi." },
   helpGroup:    { ru: "👉 Добавьте меня в группу и нажмите «Новая игра».", uz: "👉 Meni guruhga qoʻshing va «Yangi oʻyin»ni bosing." },
-  helpPM:       { ru: "👋 Я — <b>Mafia UZ</b>, игровая Мафия в Telegram.\n\nСоберите друзей в группе (от 4 игроков, без лимита) — и я стану ведущим: раздам роли, буду вести ночи и дни, голосование и таймеры.\n\n👉 Добавьте меня в группу и напишите /start (или нажмите кнопку ниже).\n\nЯ говорю на 🇷🇺 и 🇺🇿.", uz: "👋 Men — <b>Mafia UZ</b>, Telegramdagi Mafiya oʻyini.\n\nGuruhda 4 tadan doʻstni yigʻing (chegara yoʻq) — men boshqaruvchi boʻlaman: rollar tarqataman, tun va kunlarni, ovoz berish va taymerlarni olib boraman.\n\n👉 Meni guruhga qoʻshing va /start yozing (yoki pastdagi tugmani bosing).\n\nMen 🇷🇺 va 🇺🇿 tillarida gaplashaman." },
+  helpPM:       { ru: "👋 Я — <b>Mafia UZ</b>, игровая Мафия в Telegram.\n\nСоберите друзей в группе (от 4 игроков, без лимита) — и я стану ведущим: раздам роли, буду вести ночи и дни, голосование и таймеры.\n\n👉 Добавьте меня в группу и напишите /start (или нажмите кнопку ниже).\n\nЯ говорю на 🇷🇺 и 🇺🇿.", uz: "👋 Men — <b>Mafia UZ</b>, Telegramdagi Mafiya oʻyini.\n\nGuruhga 4 tadan doʻstni yigʻing — chegara yoʻq. Men oʻyin boshlovchisi boʻlaman: rollarni tarqataman, tun va kunni, ovoz berish va taymerlarni oʻzim olib boraman.\n\n👉 Meni guruhga qoʻshing va /start yozing.\n\nMen 🇺🇿 va 🇷🇺 tillarida gaplashaman." },
   newGame:      { ru: "🎲 Новая игра", uz: "🎲 Yangi oʻyin" },
-  pmBlocked:    { ru: "⚠️ {name}, откройте личку с ботом (напишите мне /start), иначе не сможете играть.", uz: "⚠️ {name}, botga shaxsiy chatni oching (menga /start yozing), aks holda oʻyinlay olmaysiz." },
+  pmBlocked:    { ru: "⚠️ {name}, откройте личку с ботом (напишите мне /start), иначе не сможете играть.", uz: "⚠️ {name}, botga shaxsiy chatni oching (menga /start yozing), aks holda oʻynay olmaysiz." },
   tooFew:       { ru: "❌ Нужно минимум 4 игрока.", uz: "❌ Kamida 4 oʻyinchi kerak." },
   notInGame:    { ru: "Вы не в игре.", uz: "Siz oʻyinda emassiz." },
   deadNoAct:    { ru: "💀 Мёртвые молчат 😏", uz: "💀 Oʻliklar jim turadi 😏" },
@@ -155,13 +155,13 @@ const ROLES = {
   don:     { ru: "🎯 Дон Мафии", uz: "🎯 Mafiya Doni",
              ruD: "Ночью выбираете жертву. Днём скрывайтесь среди мирных.", uzD: "Tunda qurbonni tanlaysiz. Kunduzi tinchlar orasida yashirining." },
   mafia:   { ru: "🔪 Мафия", uz: "🔪 Mafiya",
-             ruD: "Ночью выбираете жертву. Днём скрывайтесь среди мирных.", uzD: "Tunda qurbonni tanlaysiz. Kunduzi tinchalar orasida yashirining." },
+             ruD: "Ночью выбираете жертву. Днём скрывайтесь среди мирных.", uzD: "Tunda qurbonni tanlaysiz. Kunduzi tinchlar orasida yashirining." },
   sheriff: { ru: "🕵️ Комиссар", uz: "🕵️ Komissar",
              ruD: "Каждую ночь проверяете одного игрока: мафия он или нет.", uzD: "Har tunda bitta oʻyinchini tekshirasiz: mafiya yoki yoʻq." },
   doctor:  { ru: "💊 Доктор", uz: "💊 Doktor",
-             ruD: "Каждую ночь спасаете одного игрока (можно себя) от мафии.", uzD: "Har tunda bitta oʻyinchini qutqarasiz (oʻzingizni ham)" },
+             ruD: "Каждую ночь спасаете одного игрока (можно себя) от мафии.", uzD: "Har tunda bittadan oʻyinchini tanlab, uni mafiyadan qutqarasiz (oʻzingizni ham tanlash mumkin)." },
   civ:     { ru: "👤 Мирный житель", uz: "👤 Tinch aholi",
-             ruD: "Днём ищите мафию и голосуйте. Ночью — спите и верьте в доктора.", uzD: "Kunduzi mafiyani qidiring va ovoz bering. Tunda uxlang." },
+             ruD: "Днём ищите мафию и голосуйте. Ночью — спите и верьте в доктора.", uzD: "Kunduzi mafiyani qidiring va ovoz bering. Tunda uxlang — doktorga ishoning." },
 };
 const ROLE_KEY = { don: "don", mafia: "mafia", sheriff: "sheriff", doctor: "doctor", civ: "civ" };
 function roleName(r, lang) { const x = ROLES[r]; return lang === "uz" ? x.uz : x.ru; }
@@ -191,7 +191,7 @@ async function tg(method, params) {
 /* ---------- Тексты профилей (RU/UZ) ---------- */
 const P = {
   cardTitle:   { ru: "👤 Ваш профиль", uz: "👤 Sizning profilingiz" },
-  lvl:         { ru: "Сныт: {v}", uz: "Sath: {v}" },
+  lvl:         { ru: "Уровень: {v}", uz: "Sath: {v}" },
   xpLine:      { ru: "XP: {v}", uz: "XP: {v}" },
   rating:      { ru: "⭐ Рейтинг: {v}", uz: "⭐ Reyting: {v}" },
   coins:       { ru: "🪙 Монеты: {v}", uz: "🪙 Tanga: {v}" },
@@ -200,16 +200,16 @@ const P = {
   achLine:     { ru: "🏅 Достижения: {v}/{t}", uz: "🏅 Yutuqlar: {v}/{t}" },
   kbBonus:     { ru: "🎁 Бонус", uz: "🎁 Kunlik bonus" },
   kbTop:       { ru: "🏆 Топ", uz: "🏆 Reyting" },
-  kbLang:      { ru: "🇺🇿 Oʻzbek tiliga", uz: "🇷🇺 На русский" },
-  bonusGot:    { ru: "🎁 Бонус получен: +{v} 🪙!\n🔥 Серия дней: {s}\n\nПриходите завтра!", uz: "🎁 Bonus olindi: +{v} 🪙!\n🔥 Kunlar seriyasi: {s}\n\nErtaga qaytaning!" },
-  bonusOld:    { ru: "⏳ Бонус уже получен. Возвращайтесь завтра!", uz: "⏳ Bugungi bonus olingan. Ertaga qaytaning!" },
+  kbLang:      { ru: "🇺🇿 Перейти на узбекский", uz: "🇷🇺 Rus tiliga oʻtish" },
+  bonusGot:    { ru: "🎁 Бонус получен: +{v} 🪙!\n🔥 Серия дней: {s}\n\nПриходите завтра!", uz: "🎁 Bonus olindi: +{v} 🪙!\n🔥 Kunlar seriyasi: {s}\n\nErtaga yana keling!" },
+  bonusOld:    { ru: "⏳ Бонус уже получен. Возвращайтесь завтра!", uz: "⏳ Bugungi bonus olingan. Ertaga yana keling!" },
   topTitle:    { ru: "🏆 ТОП-10 по рейтингу", uz: "🏆 Reyting boʻyicha TOP-10" },
   topEmpty:    { ru: "Хм, рейтинг пока пуст. Сыграйте первыми!", uz: "Reyting hali boʻsh. Birinchi boʻlib oʻynang!" },
   winYou:      { ru: "🏆 <b>Галаба!</b> +{xp} XP · +{c} 🪙 · рейтинг {r}", uz: "🏆 <b>Gʻalaba!</b> +{xp} XP · +{c} 🪙 · reyting {r}" },
   loseYou:     { ru: "💀 <b>Поражение.</b> +{xp} XP · +{c} 🪙 · рейтинг {r}", uz: "💀 <b>Magʻlubiyat.</b> +{xp} XP · +{c} 🪙 · reyting {r}" },
   newAch:      { ru: "🏅 Новое достижение: <b>{v}</b>", uz: "🏅 Yangi yutuq: <b>{v}</b>" },
   winners:     { ru: "🏆 Победители", uz: "🏆 Gʻoliblar" },
-  meShort:     { ru: "👤 {name} · Сныт {lvl} · ⭐ {rating} · 🪙 {coins}", uz: "👤 {name} · Sath {lvl} · ⭐ {rating} · 🪙 {coins}" },
+  meShort:     { ru: "👤 {name} · Уровень {lvl} · ⭐ {rating} · 🪙 {coins}", uz: "👤 {name} · Sath {lvl} · ⭐ {rating} · 🪙 {coins}" },
 };
 function pt(lang, key, vars) {
   let s = (P[key] && (P[key][lang] || P[key].ru)) || key;
@@ -323,7 +323,7 @@ function pmKb(lang) {
 function topText(lang) {
   if (!TOP.length) return pt(lang, "topEmpty");
   const lines = TOP.slice(0, 10).map((e, i) =>
-    `${["🥇", "🥈", "🥉"][i] || (i + 1) + "."} ${esc(e.name)} — ⭐${e.rating} · ${lang === "uz" ? "Sath" : "Сныт"} ${e.level}${e.wins ? ` · ✅${e.wins}` : ""}`);
+    `${["🥇", "🥈", "🥉"][i] || (i + 1) + "."} ${esc(e.name)} — ⭐${e.rating} · ${lang === "uz" ? "Sath" : "Уровень"} ${e.level}${e.wins ? ` · ✅${e.wins}` : ""}`);
   return pt(lang, "topTitle") + "\n\n" + lines.join("\n");
 }
 async function updateTop(players) {
